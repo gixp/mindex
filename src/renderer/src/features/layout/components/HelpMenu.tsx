@@ -22,7 +22,7 @@ interface HelpMenuItem {
  * poorer of the two.
  */
 const WEBSITE = 'https://mindex.live'
-const REPOSITORY = 'https://github.com/gixp/Mindex'
+const REPOSITORY = 'https://github.com/gixp/mindex'
 
 /**
  * Opens in the OS browser, not in a window of the app's own.

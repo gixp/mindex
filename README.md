@@ -1,5 +1,5 @@
-[![Release](https://img.shields.io/github/v/release/gixp/Mindex?display_name=tag&label=release&color=3b82f6)](https://github.com/gixp/Mindex/releases/latest)
-[![Release build](https://img.shields.io/github/actions/workflow/status/gixp/Mindex/release.yml?label=release%20build)](https://github.com/gixp/Mindex/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/gixp/mindex?display_name=tag&label=release&color=3b82f6)](https://github.com/gixp/mindex/releases/latest)
+[![Release build](https://img.shields.io/github/actions/workflow/status/gixp/mindex/release.yml?label=release%20build)](https://github.com/gixp/mindex/actions/workflows/release.yml)
 
 # Mindex — an open-source IDE for your knowledge, on your AI subscription
 
@@ -63,7 +63,7 @@ setup screen checks on first launch, and can install one for you.
 ## Install
 
 Download from [mindex.live/download](https://mindex.live/download) or the
-[releases page](https://github.com/gixp/Mindex/releases/latest).
+[releases page](https://github.com/gixp/mindex/releases/latest).
 
 | Platform              | File                                      |
 | --------------------- | ----------------------------------------- |
@@ -79,8 +79,8 @@ right-click the app, choose Open, then Open again.
 Node 20 or newer.
 
 ```bash
-git clone https://github.com/gixp/Mindex.git
-cd Mindex
+git clone https://github.com/gixp/mindex.git
+cd mindex
 npm ci
 npm run dev
 ```
@@ -95,8 +95,8 @@ those integrations turns itself off when its key is blank.
 ## Asking for things
 
 Feature requests and questions go to
-[Discussions](https://github.com/gixp/Mindex/discussions). Bugs go to
-[Issues](https://github.com/gixp/Mindex/issues).
+[Discussions](https://github.com/gixp/mindex/discussions). Bugs go to
+[Issues](https://github.com/gixp/mindex/issues).
 
 The app also has a report form of its own, under Help. That one goes to the
 crash reporter rather than to this repository, and it never sends anything from

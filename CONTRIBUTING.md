@@ -5,8 +5,8 @@ most useful thing you can do is talk before you build.
 
 ## Before you write code
 
-- **An idea or a request** → [Discussions](https://github.com/gixp/Mindex/discussions).
-- **Something broken** → [Issues](https://github.com/gixp/Mindex/issues), with
+- **An idea or a request** → [Discussions](https://github.com/gixp/mindex/discussions).
+- **Something broken** → [Issues](https://github.com/gixp/mindex/issues), with
   the steps that produce it and what you expected instead.
 - **A change of any size** → open an issue or a discussion first. A pull
   request that arrives unannounced may be rejected on grounds that had nothing
@@ -17,8 +17,8 @@ most useful thing you can do is talk before you build.
 Node 20 or newer.
 
 ```bash
-git clone https://github.com/gixp/Mindex.git
-cd Mindex
+git clone https://github.com/gixp/mindex.git
+cd mindex
 npm ci
 npm run dev
 ```

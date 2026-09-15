@@ -4,7 +4,7 @@
 
 Please report privately, not in a public issue.
 
-- Preferred: [open a private advisory](https://github.com/gixp/Mindex/security/advisories/new),
+- Preferred: [open a private advisory](https://github.com/gixp/mindex/security/advisories/new),
   which keeps the report between you and the maintainer until there is a fix.
 - Or email **dvolynov@gmail.com** with "Mindex security" in the subject.
 

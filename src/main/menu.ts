@@ -238,7 +238,7 @@ export async function buildMenu(): Promise<Menu> {
       { type: 'separator' },
       {
         label: 'GitHub Repository',
-        click: () => void shell.openExternal('https://github.com/gixp/Mindex')
+        click: () => void shell.openExternal('https://github.com/gixp/mindex')
       }
     ]
   }
