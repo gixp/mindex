@@ -1,0 +1,287 @@
+{
+  "src/renderer/src/features/chat/components/AgentSettings.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/chat/components/ChatInputBar.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/chat/components/ComposerEditor.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/chat/components/MentionPopover.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/chat/components/MessageBubble.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/renderer/src/features/chat/components/MessageList.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/chat/components/QuestionCards.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/renderer/src/features/chat/components/ToolCard.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/renderer/src/features/chat/lib/mode-colors.ts": {
+    "no-restricted-syntax": {
+      "count": 11
+    }
+  },
+  "src/renderer/src/features/comments/components/CommentCard.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/renderer/src/features/comments/components/CommentsSidebar.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/renderer/src/features/context/components/sectionParts.tsx": {
+    "no-restricted-syntax": {
+      "count": 22
+    }
+  },
+  "src/renderer/src/features/editor/components/BlockHandles.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/editor/components/CommentComposer.tsx": {
+    "no-restricted-syntax": {
+      "count": 12
+    }
+  },
+  "src/renderer/src/features/editor/components/Editor.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/editor/components/EditorSurface.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/editor/components/FrontmatterPanel.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/renderer/src/features/editor/components/NoteEditor.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/features/editor/components/SlashMenu.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/renderer/src/features/editor/components/SlashMenuPreview.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/features/editor/components/slashCommands.tsx": {
+    "no-restricted-syntax": {
+      "count": 34
+    }
+  },
+  "src/renderer/src/features/folder-context/components/EngineStatusModal.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/renderer/src/features/git/components/GitDiffView.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/git/components/GitHubRepoPicker.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/features/git/components/GitHubSignIn.tsx": {
+    "no-restricted-syntax": {
+      "count": 11
+    }
+  },
+  "src/renderer/src/features/git/components/PublishToGitHubDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/renderer/src/features/git/components/SyncBadge.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/graph/components/GraphSettingsPanel.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/history/components/FileHistoryModal.tsx": {
+    "no-restricted-syntax": {
+      "count": 16
+    }
+  },
+  "src/renderer/src/features/icon-picker/components/IconPicker.tsx": {
+    "no-restricted-syntax": {
+      "count": 10
+    }
+  },
+  "src/renderer/src/features/layout/components/HeaderSearch.tsx": {
+    "no-restricted-syntax": {
+      "count": 6
+    }
+  },
+  "src/renderer/src/features/media/components/FileDropZone.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/renderer/src/features/onboarding/components/OnboardingDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 28
+    }
+  },
+  "src/renderer/src/features/palette/components/CommandPalette.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/features/settings/components/SettingsDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 11
+    }
+  },
+  "src/renderer/src/features/settings/components/primitives.tsx": {
+    "no-restricted-syntax": {
+      "count": 9
+    }
+  },
+  "src/renderer/src/features/skills/components/SkillFileView.tsx": {
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  },
+  "src/renderer/src/features/skills/components/SkillsHome.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/renderer/src/features/startup/components/StartupScreen.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/terminal/components/RecentChatsList.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/terminal/components/TerminalView.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/tree/components/GitStatusBadge.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/tree/components/SidebarContextMenu.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/features/tree/components/SkillsPane.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/features/tree/components/TreePane.tsx": {
+    "no-restricted-syntax": {
+      "count": 13
+    }
+  },
+  "src/renderer/src/features/tree/components/TypesPane.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/features/types/components/TypeEditorView.tsx": {
+    "no-restricted-syntax": {
+      "count": 26
+    }
+  },
+  "src/renderer/src/features/types/components/TypesHome.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/renderer/src/features/vault/components/CloneVaultDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/renderer/src/features/welcome/components/WelcomeView.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/ui/EmptyState.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/renderer/src/ui/PromptDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/ui/dialog-chrome.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/ui/select.tsx": {
+    "no-restricted-syntax": {
+      "count": 6
+    }
+  },
+  "src/renderer/src/ui/status-pill.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/renderer/src/ui/tab-bar.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/renderer/src/ui/view-picker.tsx": {
+    "no-restricted-syntax": {
+      "count": 19
+    }
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      connect-src is an allowlist, not a lock: it names every host the renderer
+      may reach with fetch/XHR/WebSocket. Everything not listed is refused by
+      the engine itself, so a script that should not be running here cannot
+      ship the vault to an arbitrary server. Add hosts as they are genuinely
+      needed; never widen this to `*`.
+
+        supabase.co    — auth/data, if ever called from the renderer
+        posthog.com    — product analytics
+        sentry.io      — crash + error reporting
+        google         — OAuth/userinfo endpoints (avatars are images and
+                         already covered by img-src https:)
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: mindex-asset: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://*.sentry.io https://accounts.google.com https://*.googleapis.com; object-src 'none'; base-uri 'self'" />
+    <title>Mindex</title>
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

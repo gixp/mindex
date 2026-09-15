@@ -1,0 +1,149 @@
+[
+  {
+    "sessionUpdate": "usage_update",
+    "used": 35994,
+    "size": 200000
+  },
+  {
+    "_meta": {
+      "claudeCode": {
+        "toolName": "Bash"
+      }
+    },
+    "toolCallId": "toolu_01XDXe8wZ566jPtt3U9ULCQC",
+    "sessionUpdate": "tool_call",
+    "rawInput": {},
+    "status": "pending",
+    "title": "Terminal",
+    "kind": "execute",
+    "content": []
+  },
+  {
+    "_meta": {
+      "claudeCode": {
+        "toolName": "Bash"
+      }
+    },
+    "toolCallId": "toolu_01XDXe8wZ566jPtt3U9ULCQC",
+    "sessionUpdate": "tool_call_update",
+    "rawInput": {
+      "command": "cat probe.txt 2>&1; echo \"---\"; pwd"
+    },
+    "title": "cat probe.txt 2>&1; echo \"---\"; pwd",
+    "kind": "execute"
+  },
+  {
+    "_meta": {
+      "claudeCode": {
+        "toolName": "Bash",
+        "title": "Check for probe.txt in current directory"
+      }
+    },
+    "toolCallId": "toolu_01XDXe8wZ566jPtt3U9ULCQC",
+    "sessionUpdate": "tool_call_update",
+    "rawInput": {
+      "command": "cat probe.txt 2>&1; echo \"---\"; pwd",
+      "description": "Check for probe.txt in current directory"
+    },
+    "title": "cat probe.txt 2>&1; echo \"---\"; pwd",
+    "kind": "execute",
+    "content": [
+      {
+        "type": "content",
+        "content": {
+          "type": "text",
+          "text": "Check for probe.txt in current directory"
+        }
+      }
+    ]
+  },
+  {
+    "sessionUpdate": "usage_update",
+    "used": 36077,
+    "size": 200000
+  },
+  {
+    "_meta": {
+      "claudeCode": {
+        "toolResponse": {
+          "stdout": "hello from mindex acp spike\n---\n/tmp/mindex-acp",
+          "stderr": "",
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": false
+        },
+        "toolName": "Bash"
+      }
+    },
+    "toolCallId": "toolu_01XDXe8wZ566jPtt3U9ULCQC",
+    "sessionUpdate": "tool_call_update"
+  },
+  {
+    "_meta": {
+      "claudeCode": {
+        "toolName": "Bash"
+      }
+    },
+    "toolCallId": "toolu_01XDXe8wZ566jPtt3U9ULCQC",
+    "sessionUpdate": "tool_call_update",
+    "status": "completed",
+    "rawOutput": "hello from mindex acp spike\n---\n/tmp/mindex-acp",
+    "content": [
+      {
+        "type": "content",
+        "content": {
+          "type": "text",
+          "text": "```console\nhello from mindex acp spike\n---\n/tmp/mindex-acp\n```"
+        }
+      }
+    ]
+  },
+  {
+    "sessionUpdate": "usage_update",
+    "used": 36165,
+    "size": 200000
+  },
+  {
+    "sessionUpdate": "agent_message_chunk",
+    "content": {
+      "type": "text",
+      "text": "prob"
+    },
+    "messageId": "msg_011CeY511h9oiaA55d7t2o2w"
+  },
+  {
+    "sessionUpdate": "agent_message_chunk",
+    "content": {
+      "type": "text",
+      "text": "e.txt says"
+    },
+    "messageId": "msg_011CeY511h9oiaA55d7t2o2w"
+  },
+  {
+    "sessionUpdate": "agent_message_chunk",
+    "content": {
+      "type": "text",
+      "text": " exactly: `hello from mindex acp spike`"
+    },
+    "messageId": "msg_011CeY511h9oiaA55d7t2o2w"
+  },
+  {
+    "sessionUpdate": "usage_update",
+    "used": 36188,
+    "size": 200000
+  },
+  {
+    "sessionUpdate": "usage_update",
+    "used": 36188,
+    "size": 1000000,
+    "cost": {
+      "amount": 0.1028543,
+      "currency": "USD"
+    },
+    "_meta": {
+      "_claude/origin": {
+        "kind": "human"
+      }
+    }
+  }
+]

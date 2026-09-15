@@ -1,0 +1,144 @@
+appId: com.mindex.app
+productName: Mindex
+copyright: Copyright © 2026
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  # Source maps are built for Sentry and uploaded there by CI. They must NOT
+  # travel in the installer: they roughly double the download for no user
+  # benefit. (This used to say they would leak readable source for a closed
+  # app. The app is open source as of 2026-09-02, so secrecy is not the
+  # reason any more — size is, and it is reason enough.)
+  - "!out/**/*.map"
+  - package.json
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/*.d.ts"
+  - "!**/node_modules/.bin"
+asarUnpack:
+  - "**/node_modules/node-pty/**/*"
+
+# Electron fuses — compile-time switches burned into the shipped binary,
+# narrowing what the app can be made to do by whoever runs it.
+#
+# Only the ones this app can actually afford are set. The omissions are
+# deliberate and each has a reason:
+#
+#   runAsNode — LEFT ON, and it has to be. When a user has no managed Node
+#     of ours installed, `mcp/index.ts` runs the tool shim by launching our
+#     own binary as a plain Node interpreter, which is exactly what this
+#     fuse controls. Turning it off silently breaks external tool support
+#     for those users. It also caps the value of the two below, since anyone
+#     who can set an environment variable can still use the binary as Node —
+#     the real fix is to stop depending on the fallback, not to flip this.
+#
+#   grantFileProtocolExtraPrivileges — LEFT ALONE. The packaged renderer is
+#     loaded with `loadFile`, i.e. over file://, alongside a custom asset
+#     scheme. Removing file://'s extra privileges is plausible but not
+#     verifiable without a packaged run, and getting it wrong means a window
+#     that loads nothing.
+#
+#   embeddedAsarIntegrityValidation / onlyLoadAppFromAsar — NOT YET. These
+#     are the two that actually detect tampering with installed app code,
+#     so they are wanted, but on macOS they are entangled with code signing
+#     and a mistake surfaces as an app that will not launch — at release
+#     time, not here. They belong in the same change as the Apple developer
+#     certificate, where a signed build gets verified anyway.
+electronFuses:
+  runAsNode: true
+  enableCookieEncryption: true
+  # Nothing in this project reads NODE_OPTIONS or NODE_EXTRA_CA_CERTS
+  # (checked, not assumed), so respecting them only leaves a way to inject
+  # flags into a shipped app.
+  enableNodeOptionsEnvironmentVariable: false
+  # No shipped build has a reason to open a debugger port.
+  enableNodeCliInspectArguments: false
+
+# Installers are served from Cloudflare R2 behind a branded domain. The `generic`
+# provider makes electron-builder generate the update feed (latest*.yml) pointing
+# at this URL and bake it into the app's updater — but it's download-only and never
+# uploads, so CI uploads dist/* to the bucket itself (see scripts/publish-r2.mjs).
+publish:
+  - provider: generic
+    url: https://downloads.mindex.live
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    # zip is consumed by the in-app macOS updater (src/main/updater): it downloads
+    # and extracts the .app to swap the bundle in place (Squirrel.Mac needs signing
+    # and is bypassed). dmg stays as the human-facing first install.
+    - target: zip
+      arch:
+        - arm64
+  # Off until there is a Developer ID to sign with, and no longer.
+  #
+  # Hardened runtime exists for notarization. Combined with the ad-hoc
+  # signature a certificate-less build gets, it has already produced builds
+  # macOS kills on launch — which is why the local release script used to
+  # override it by hand.
+  #
+  # A developer account is being bought (2026-09-01). When the certificate is
+  # in hand, in this order:
+  #   1. set this back to `true`
+  #   2. set `notarize` below to the team id, or leave the env-gated
+  #      afterSign hook to do it — it already skips without credentials
+  #   3. put the cert in CI as CSC_LINK / CSC_KEY_PASSWORD; electron-builder
+  #      finds it on its own, which is why `identity` is deliberately unset
+  #   4. delete the hand-rolled bundle-swap updater in src/main/updater — it
+  #      exists only because the standard mechanism needs a signed app
+  #   5. macOS notifications start working; they cannot on an unsigned build
+  #      from Electron 42 onward
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  # `identity` is intentionally omitted: electron-builder auto-detects a Developer
+  # ID cert from the keychain / CSC_LINK in CI, and ad-hoc signs locally so a
+  # cert-less dev `dist:mac` still produces a runnable app.
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  # Notarization is handled by the env-gated afterSign hook (build/notarize.cjs),
+  # so a local build without Apple creds doesn't fail.
+  notarize: false
+  extendInfo:
+    NSMicrophoneUsageDescription: Mindex uses the microphone for voice chat with the Misha agent.
+    NSSpeechRecognitionUsageDescription: Mindex transcribes your voice locally with whisper.cpp.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # Code signing: electron-builder reads CSC_LINK (cert .pfx, path or base64) and
+  # CSC_KEY_PASSWORD from the environment automatically. An EV cert removes the
+  # SmartScreen warning; an OV cert still signs (warning fades with reputation).
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+linux:
+  category: Office
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  maintainer: Dmitriy Volynov <dmitriy.volynov@aigenrix.com>
+  synopsis: Local-first Markdown workspace powered by Claude
+  description: A free, open-source, local-first Markdown workspace powered by Claude.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Run notarization after signing — the script no-ops without Apple env creds.
+afterSign: build/notarize.cjs

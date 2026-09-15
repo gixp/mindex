@@ -1,0 +1,32 @@
+name: CI
+
+# Runs the checks that were previously nowhere: lint/typecheck/test on every
+# push and PR. release.yml (tag-driven, builds installers) is untouched and
+# unaffected by this file.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test

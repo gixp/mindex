@@ -1,0 +1,2379 @@
+@import '@vscode/codicons/dist/codicon.css';
+@import 'katex/dist/katex.min.css';
+
+/* Regola Pro — display/heading font, ported from the landing (mindex.live) so the
+   app's headings match the marketing site 1:1. */
+@font-face {
+  font-family: 'Regola Pro';
+  src: url('../assets/fonts/RegolaPro-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Regola Pro';
+  src: url('../assets/fonts/RegolaPro-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Regola Pro';
+  src: url('../assets/fonts/RegolaPro-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.ProseMirror.live-editor,
+.ProseMirror.live-editor .live-block {
+  white-space: normal;
+}
+
+/* The default icon colour — on the element only, deliberately.
+
+   A codicon's glyph is a `::before` pseudo-element, and this rule used to name
+   it as well. Zero specificity, which looked safe and was not, because
+   specificity is not what decides this: a declaration matching an element
+   directly beats a value that element would otherwise inherit, at ANY
+   specificity. So the glyph took its grey from here instead of inheriting
+   whatever the element had been given, and a plain colour class on an `<Icon>`
+   did nothing at all, no matter what it was. The comment that used to sit here
+   claimed the exact opposite in so many words.
+
+   Two things in the product were broken by it, both invisibly: the icon
+   picker's Accent swatch, and folders falling back to grey rather than to the
+   standardized accent they are meant to have. Both write `text-accent-1`, an
+   ordinary utility with no `::before` half.
+
+   Setting it on the element alone lets inheritance do the work, which is what
+   a pseudo-element does by default — the @vscode/codicons package sets no
+   colour of its own, so there was never anything here to fight. The named
+   helpers below keep both halves and their `!important` on purpose: they mean
+   "this colour, whatever else is on the element". */
+:where(.codicon) {
+  color: rgb(140, 140, 140);
+  /* Icons that force their own color (the `!text-*` hover-override pattern)
+     sit outside their button's `transition-colors` — that only animates the
+     button's own `color`, and an explicit `!important` value on this element
+     doesn't inherit it. `codicon-inherit` icons already transition smoothly
+     for free by following their button's animated color; this gives the
+     same smoothness to the forced-color ones. */
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Follows the colour of whatever contains it. Needs `!important` — unlike the
+   zero-specificity default above, this one has to win even over a `text-*`
+   class that might also be sitting on the icon, since "inherit" is a
+   deliberate instruction to ignore that class, not a fallback.
+   transition: none overrides the base rule's own 150ms transition: an
+   inherited `color` already tracks the parent's animated value on every
+   frame for free, so a transition here too meant TWO independent 150ms
+   timers chasing each other — element inheriting from the button, ::before
+   inheriting from the element — which visibly lagged behind the label
+   text (which has no transition of its own, so it just tracks the button
+   directly). Cutting the icon's own transition makes it track exactly like
+   the text does. */
+.codicon.codicon-inherit,
+.codicon.codicon-inherit::before {
+  color: inherit !important;
+  transition: none;
+}
+
+/* For an icon inside a disabled control. The base `.codicon` rule sets its
+   colour with `!important`, so an icon cannot simply inherit the dimmed text
+   of the button around it — it needs a helper of its own, like every other
+   colour here. */
+.codicon.codicon-muted,
+.codicon.codicon-muted::before {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.codicon.codicon-white,
+.codicon.codicon-white::before {
+  color: hsl(var(--foreground)) !important;
+}
+/* The text ladder's primary colour, for icons that sit beside label text set
+   in it. Distinct from codicon-white, which tracks --foreground: in the dark
+   theme that is a near-pure white and --c-1 is a step softer, so an icon on
+   codicon-white next to --c-1 text reads brighter than the word beside it. */
+.codicon.codicon-c-1,
+.codicon.codicon-c-1::before {
+  color: hsl(var(--c-1)) !important;
+}
+.codicon.codicon-amber,
+.codicon.codicon-amber::before {
+  color: hsl(var(--ic-amber)) !important;
+}
+.codicon.codicon-emerald,
+.codicon.codicon-emerald::before {
+  color: hsl(var(--ic-emerald)) !important;
+}
+.codicon.codicon-red,
+.codicon.codicon-red::before {
+  color: hsl(var(--ic-red)) !important;
+}
+/* The graph canvas.
+   `cursor` is an inherited property, so setting it on the wrapper reaches the
+   canvas — while force-graph's own `.clickable { cursor: pointer }` rule, which
+   sits on the canvas element itself, still wins when a node is under the
+   pointer. That division is deliberate: the library owns "there is something
+   here", this owns "the background can be dragged".
+
+   `!important` on the panning state because force-graph keeps running hover
+   detection mid-drag, and without it the cursor would flick to a pointer every
+   time a node passed under a pan already in progress. */
+.mindex-graph-surface {
+  cursor: grab;
+}
+.mindex-graph-surface.is-panning,
+.mindex-graph-surface.is-panning canvas {
+  cursor: grabbing !important;
+}
+
+/* The one range input in the app (the graph's spacing slider). Styled here
+   rather than inline because a range needs vendor pseudo-elements for its
+   track and thumb, and those cannot be expressed as utility classes. */
+.mindex-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+.mindex-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.14);
+}
+.mindex-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #fff;
+  /* Half the thumb minus half the track, so it rides centred on the line. */
+  margin-top: -4px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  transition: transform 120ms ease;
+}
+.mindex-range:hover::-webkit-slider-thumb,
+.mindex-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.mindex-range:focus-visible {
+  outline: none;
+}
+.mindex-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px hsl(var(--accent-1) / 0.35);
+}
+
+.codicon.codicon-orange,
+.codicon.codicon-orange::before {
+  color: hsl(var(--ic-orange)) !important;
+}
+.codicon.codicon-grey,
+.codicon.codicon-grey::before {
+  color: hsl(var(--ic-grey)) !important;
+}
+.codicon.codicon-blue,
+.codicon.codicon-blue::before {
+  color: hsl(var(--ic-blue)) !important;
+}
+.codicon.codicon-purple,
+.codicon.codicon-purple::before {
+  color: hsl(var(--ic-purple)) !important;
+}
+.codicon.codicon-cyan,
+.codicon.codicon-cyan::before {
+  color: hsl(var(--ic-cyan)) !important;
+}
+.codicon.codicon-pink,
+.codicon.codicon-pink::before {
+  color: hsl(var(--ic-pink)) !important;
+}
+/* For icons sitting on a filled accent button, where the label is already
+   --background. A plain `text-*` class works fine on an icon now (the default
+   above carries zero specificity), so this exists purely as a named,
+   semantic constant — "the colour a fill's label already is" — not as a way
+   to fight the default. */
+.codicon.codicon-on-accent,
+.codicon.codicon-on-accent::before {
+  color: hsl(var(--background)) !important;
+}
+/* Literal white, for icons on a saturated fill (a solid blue button) whose
+   label is `text-white`. Distinct from codicon-white, which tracks
+   --foreground and therefore turns dark in the light theme. */
+.codicon.codicon-on-fill,
+.codicon.codicon-on-fill::before {
+  color: #fff !important;
+}
+button:hover .codicon.codicon-red,
+button:hover .codicon.codicon-red::before {
+  color: rgb(252 165 165) !important;
+}
+
+button:hover .codicon.codicon-hover-light,
+button:hover .codicon.codicon-hover-light::before {
+  color: hsl(var(--foreground)) !important;
+}
+
+.codicon.codicon-markdown {
+  transform: translateY(1px);
+}
+
+/* Provider brand colours. Deliberately NOT named after the glyphs
+   (`codicon-claude`, `codicon-openai`) — those are the icons' own classes, and
+   a colour helper sharing a name would repaint every one of them in the app.
+   Icon-name and colour-helper classes live in one namespace. */
+.codicon.codicon-brand-claude,
+.codicon.codicon-brand-claude::before {
+  color: hsl(var(--brand-claude)) !important;
+}
+
+.codicon.codicon-brand-gemini,
+.codicon.codicon-brand-gemini::before {
+  color: hsl(var(--brand-gemini)) !important;
+}
+
+button:disabled,
+button[aria-disabled='true'],
+[role='button'][aria-disabled='true'],
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: default !important;
+}
+
+*,
+*:focus,
+*:focus-visible {
+  outline: none !important;
+}
+
+.dictation-orb {
+  --level: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(calc(1 + var(--level) * 0.18));
+  transition: transform 70ms linear;
+}
+.dictation-orb::before {
+  content: '';
+  position: absolute;
+  inset: -28%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgba(90, 163, 255, calc(0.16 + var(--level) * 0.6)),
+    rgba(90, 163, 255, 0) 72%
+  );
+  filter: blur(calc(7px + var(--level) * 16px));
+  opacity: calc(0.4 + var(--level) * 0.6);
+  transition:
+    opacity 70ms linear,
+    filter 70ms linear;
+  pointer-events: none;
+}
+.dictation-orb[data-phase='transcribing']::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(90, 163, 255, 0) 0deg,
+    rgba(90, 163, 255, 0) 90deg,
+    rgba(122, 180, 255, 0.95) 320deg,
+    rgba(90, 163, 255, 0) 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: orb-spin 0.85s linear infinite;
+  pointer-events: none;
+}
+@keyframes orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.dictation-orb img {
+  position: relative;
+}
+html:has(#overlay-root),
+body:has(#overlay-root) {
+  background: transparent !important;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: var(--bg-1);
+    --foreground: 0 0% 98%;
+    --card: var(--bg-2);
+    --card-foreground: 0 0% 98%;
+    /* Same hue/saturation as --card, one step lighter — for a surface that
+       needs to read as "this card, but the selected one" rather than a
+       genuinely different colour (the header's active tab, matched against
+       the right sidebar's own bg-card). */
+    --card-active: 0 0% 13.7%;
+    --popover: var(--bg-2);
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 210 5% 10%;
+    --secondary: var(--bg-2);
+    --secondary-foreground: 0 0% 98%;
+    --muted: var(--bg-2);
+    --muted-foreground: 240 5% 64.9%;
+    --accent: var(--chrome-h) var(--chrome-s) calc(var(--tone-l) + 9.55%);
+    /* One step further than --accent, for the hover under a control that
+     * already rests on it. Further from the page, which on a dark ground
+     * means lighter; the light theme moves the other way for the same
+     * reason its borders do. */
+    --accent-hover: var(--chrome-h) var(--chrome-s) calc(var(--tone-l) + 13%);
+    --accent-foreground: 0 0% 98%;
+    --destructive: var(--ic-red);
+    --destructive-foreground: 0 0% 12%;
+    --border: var(--chrome-h) var(--chrome-s) calc(var(--tone-l) + 5.3%);
+    --border-strong: var(--chrome-h) var(--chrome-s) calc(var(--tone-l) + 11.8%);
+    --surface-muted: 0 0% 11.15%;
+    --input: var(--chrome-h) var(--chrome-s) calc(var(--tone-l) + 5.3%);
+    --ring: 240 4.9% 83.9%;
+    --radius: 6px;
+    /* Larger radii scale, matching the landing (mindex.live) surfaces. */
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+    /* Claude / Anthropic clay-orange accent. */
+    --accent2: 16 72% 64%;
+    --code-fg: 36 55% 72%;
+    /* The app's blue. One value, everywhere it means "ours".
+     *
+     * Was #3b82f6 (a utility-palette blue) until 2026-09-02, when it became
+     * #60a5fa — the shade the icon palette already used, and the one an
+     * un-customized folder already is. Two blues a step apart, one called the
+     * accent and one used as it, is how the icon picker ended up offering
+     * three of them. Then darkened a step to #398ff9.
+     *
+     * It was briefly #0088ff, as part of adopting Apple's system colours.
+     * That was reverted on 2026-09-04 along with the rest of it; the three
+     * status colours below were the part that was kept.
+     *
+     * Written so an opacity modifier works — `bg-accent-1/15` — because the
+     * call sites that were reaching for a raw `blue-500` were reaching for it
+     * at fourteen different opacities, and a token that cannot be faded is a
+     * token they would keep going around. */
+    --accent-1: 213 94% 60%; /* #398ff9 */
+
+    /* Each assistant's own colour, as its makers use it. Held as three
+       numbers, not a hex, so the same value can be tinted and glowed at any
+       opacity — which is what the working-on-it mark below needs and a hex
+       cannot give. */
+    --brand-claude: 15 63% 60%; /* #d97757 */
+    --brand-gemini: 217 89% 61%; /* #4285f4 */
+    --brand-codex: 0 0% 88%; /* OpenAI's mark is monochrome by design */
+    /* On a dark ground the mark is already a pale fill rather than a slab, so
+     * the Send button takes it unchanged. The light theme redefines this — see
+     * its own note. */
+    --send-codex: var(--brand-codex);
+    /* The arrow on it, which has to invert the other way from the fill. */
+    --send-codex-fg: var(--bg-1);
+
+    /* A change that has been accepted and written. Settled, not pending —
+       distinct from both the assistant's own colour and the strike. */
+    --ai-done: var(--ic-emerald);
+    /* The same blue, one step more prominent — for a *word* or a mark that
+     * lights up under the pointer. A fill does that with opacity instead
+     * (`hover:bg-accent-1/90`); text cannot, because fading text is the
+     * opposite of emphasising it. Same idea as --c-2-hover a few lines down:
+     * away from the page, so lighter here and darker in the light theme. */
+    --accent-1-hover: 213 94% 80%;
+
+    /* The elevation ladder — see plan/color-schema-migration.md. Four named
+     * levels, darkest first: --bg-1 is the app's own background, --bg-2 is
+     * every panel/modal surface (middle column, right sidebar, dialogs),
+     * --bg-3 is a plain grey fill for something sitting on top of a --bg-2
+     * surface, --bg-4 is one step past that. --bg-1/--bg-2 intentionally
+     * mirror --background/--card's values — same levels, just named for
+     * this ladder's own vocabulary; they aren't a second, independent
+     * color. Equal 2.75-point lightness step between every level, fixed to
+     * whatever --bg-1→--bg-2 (--background→--card) already was, rather
+     * than a value picked for --bg-3/--bg-4 in isolation. Light-theme
+     * values not set yet — pending Step 1's light-theme review before
+     * anything actually migrates to these.
+     */
+    /* The radius set — see plan/color-schema-migration.md. Five values for
+     * the whole app, largest first, each named for the kind of thing it
+     * belongs to rather than for a number of pixels:
+     *   --r-0  a window floating over the whole app: every dialog
+     *   --r-1  a panel surface: the centre column, the right sidebar, the
+     *          bottom panel
+     *   --r-2  the input form inside a panel
+     *   --r-3  a tab pill or a badge
+     *   --r-4  an attachment chip or a small marker
+     * A window and a panel shared --r-1 for a while, on the argument that
+     * they are the same object. They are not: a panel is docked into the
+     * page and a window floats above all of it, and the one that floats
+     * carries the rounder corner.
+     * The rule that makes this worth having: a component picks one of these.
+     * If something genuinely needs another, add one here deliberately —
+     * never a one-off value at the call site. Theme-independent on purpose,
+     * so they sit outside the light/dark blocks below.
+     */
+    --r-0: 15px;
+    --r-1: 12px;
+    --r-2: 11px;
+    --r-3: 8px;
+    --r-4: 6px;
+
+    /* One knob for the whole dark theme.
+     *
+     * Every grey below is derived from these four numbers, so making the app
+     * darker, lighter, warmer or flatter is one edit rather than eighteen —
+     * which is what it used to be, because the same lightness was written out
+     * again under every name that happened to need it.
+     *
+     *   --tone-h / --tone-s  the hue and how much of it there is
+     *   --tone-l            the page itself, the darkest thing on screen
+     *   --tone-step         how far apart two levels sit
+     *
+     * Nothing below chooses a lightness of its own; each says which rung it
+     * is on. That is what keeps the relationships true when the knob moves:
+     * a panel stays exactly one step above the page whatever the page is. */
+    /* Neutral. The hue is kept as a number rather than deleted so a tint can
+     * be dialled back in from one place, but at zero saturation it has no
+     * effect: every grey in the dark theme is now a true grey.
+     *
+     * It carried four per cent of blue, which is not enough to see as blue
+     * and is enough to make anything genuinely neutral placed on it — a
+     * screenshot, a code block, a white knob — look faintly warm by contrast. */
+    --tone-h: 210;
+    --tone-s: 0%;
+    --tone-l: 8.4%;
+    --tone-step: 2.75%;
+
+    /* The older chrome family — the outline, the field, the hover fill — sits
+     * on a slightly different hue than the surfaces do. That difference is
+     * inherited rather than chosen, and it is kept for now rather than
+     * flattened in the same change; what matters here is that its lightness
+     * rides the same knob, so it cannot drift away from the surfaces when the
+     * page moves. */
+    --chrome-h: 240;
+    --chrome-s: 0%;
+
+    --bg-1: var(--tone-h) var(--tone-s) var(--tone-l);
+    --bg-2: var(--tone-h) var(--tone-s) calc(var(--tone-l) + var(--tone-step));
+    --bg-3: var(--tone-h) var(--tone-s) calc(var(--tone-l) + 2 * var(--tone-step));
+    --bg-4: var(--tone-h) var(--tone-s) calc(var(--tone-l) + 3 * var(--tone-step));
+
+    /* Border ladder — same idea as bg-N, own vocabulary since a border
+     * needs its own contrast decision, not automatically the bg value at
+     * the same index (see plan/color-schema-migration.md). --bd-1 is
+     * currently set to --bg-2's exact value by explicit choice for the
+     * tree search input's border, not a rule that bd-N always equals
+     * bg-(N+1). */
+    --bd-1: var(--bg-2);
+    /* One step further out than --bd-1: the level above the panel, drawn as a
+     * line. For a control whose whole shape *is* its outline — a search field,
+     * a button with no fill — where --bd-1 would be too quiet to read as an
+     * edge at all. */
+    --bd-2: var(--bg-3);
+    /* The top level drawn as a line, for a control filled at that level. */
+    --bd-3: var(--bg-4);
+
+
+    /* The icon palette — eight named hues an icon can be set to, from the
+     * extension table (`codicon-blue`) or the icon picker's overrides.
+     *
+     * Not part of the elevation ladder and never will be: "amber" is a
+     * choice a user made about a folder, not a position above a surface.
+     * They are tokens all the same because they were the last colours in the
+     * app with no light-theme value at all — Tailwind's 400 shades, tuned to
+     * glow against near-black, which on white are pale enough to lose
+     * against the page.
+     *
+     * Stored as HSL triplets rather than finished colours because the graph
+     * canvas reads them out in JS (see platform/presentation/icon-colors.ts)
+     * and cannot use a class. */
+    /* The dimming behind a modal. Named because it is a thing, not a colour:
+     * "black at 40%" is a value someone picked, and it had been copy-pasted to
+     * five places where it could not be tuned per theme. On a near-black page
+     * it barely reads; on a white one the same 40% is heavy. */
+    --scrim: 0 0% 0% / 0.55;
+
+    /* Two shadows, and only two.
+     *
+     *   --sh-1  a panel docked into the page: the centre column, the sidebars,
+     *           the bottom panel. Barely there — they are held by the page's
+     *           own darker ground, and a docked thing that casts a real
+     *           shadow reads as loose.
+     *   --sh-2  anything floating over the app: every window, every menu,
+     *           every popover. Two layers, because one is either too tight to
+     *           separate the panel or too wide to have an edge.
+     *
+     * Tight on purpose. A window already sits on a dimmed page, and a wide
+     * soft black spread on top of that dim does not read as depth — it reads
+     * as a smear around the panel. It was 24px at 60% and looked like one.
+     *
+     * Neutral, like the greys they fall on. They were cast in the greys' own
+     * blue-black back when the greys had a tint; now that nothing does, a
+     * tinted shadow would be the only coloured thing on the screen.
+     *
+     * `--sh-1` had no dark value at all — it was declared once, in the light
+     * theme, as `none`. So the nine places asking for it got nothing, and the
+     * floating panels each wrote their own shadow instead, which is how there
+     * came to be four different ones. */
+    --sh-1: 0 1px 2px hsl(0 0% 2% / 0.4);
+    --sh-2:
+      0 4px 14px -4px hsl(0 0% 0% / 0.4), 0 1px 3px -1px hsl(0 0% 0% / 0.3);
+
+    /* The one that is the same in both themes on purpose. A mid grey reads on
+     * either background, and "no particular colour" should not appear to
+     * change when the theme does — it is the absence of a choice, and an
+     * absence has no light and dark version. It is also the value the base
+     * `.codicon` rule uses, so an icon set to grey and an icon set to nothing
+     * look alike, which is the honest answer. */
+    --ic-grey: 0 0% 55%;
+    /* Deliberately the same value as --accent-1: the palette's blue and the
+     * app's blue are one colour, and a folder nobody has coloured is that
+     * colour. Two of them a step apart is what this whole set was untangled
+     * from. Kept as its own name because they answer different questions —
+     * "which of the eight hues" and "is this ours" — and could reasonably
+     * diverge again. */
+    --ic-blue: 213 94% 60%;
+    --ic-cyan: 188 86% 53%;
+
+    /* The three status colours — the only red, the only yellow and the only
+     * green in the app. Given as values on 2026-09-03, not picked out of a
+     * utility palette, and every failure, warning and success now resolves to
+     * one of them: #ff383c, #ffcc00, #33c759.
+     *
+     * Each has a `-soft` companion. It is the same colour one step toward
+     * legibility, and it exists because the same hue has two jobs: the word
+     * itself, and the word lit under a pointer or set on a tint of its own
+     * colour. In the dark theme `-soft` is lighter; in the light theme it is
+     * darker. Both directions mean the same thing — further from the surface
+     * behind it.
+     *
+     * The light-theme values are the same hues taken down until they read as
+     * words on a pale page. A fully saturated yellow on white is unreadable at
+     * any size, so the light theme cannot use the dark value literally; it
+     * keeps the hue and gives up lightness, which is the only part that has to
+     * change.
+     *
+     * Softened on 2026-09-06. Red and yellow sat at full saturation, which is
+     * the loudest a colour can be — and a warning shouting as hard as an error
+     * is a warning nobody grades. Saturation came down about a fifth and
+     * lightness up a little, in both themes and in the `-soft` companions too,
+     * so each pair stays one colour. Contrast was measured either side of the
+     * change and holds. */
+    --ic-emerald: 135.4 48% 54%; /* #51c26e */
+    --ic-emerald-soft: 135.4 48% 66%;
+    --ic-amber: 48 84% 56%; /* #edc731 */
+    --ic-amber-soft: 48 84% 67%;
+    --ic-orange: 27 100% 57%;
+    --ic-red: 358.8 82% 64%; /* #ee585b */
+    --ic-red-soft: 358.8 82% 75%;
+    --ic-pink: 329 86% 70%;
+    --ic-purple: 270 95% 75%;
+
+    /* Text ladder — own vocabulary from bg-N/bd-N, see
+     * plan/color-schema-migration.md. --c-1 is the primary font color,
+     * --c-2 a secondary/muted one. (--c-3 removed for now — was set to
+     * --bg-3's own value, not currently used.) */
+    --c-1: 0 0% 87.06%; /* rgb(222 222 222) */
+    --c-2: 0 0% 56.86%; /* rgb(145 145 145) */
+    /* The standard +35-lightness-point hover rule, precomputed as its own
+     * token rather than live via CSS relative-color syntax: ChromeButton's
+     * own `hover:text-foreground` is a Tailwind utility, and only another
+     * Tailwind color utility in the same hover/text-color group reliably
+     * replaces it through tailwind-merge — a custom `:hover` rule in
+     * `@layer components` can lose that cascade fight instead of winning
+     * it cleanly. (Was +5 — too subtle to read as "hovering", bumped to
+     * +35 per direct request.) */
+    --c-2-hover: 0 0% 91.86%;
+    /* Same +35-point rule, for ChromeButton's own default resting color —
+     * see chrome-button.tsx. 64.9% + 35, clamped under 100%. */
+    --muted-foreground-hover: 240 5% 99.9%;
+  }
+
+  /*
+   * Light theme, switched on by `lib/theme.ts` via `<html data-theme="light">`
+   * — see `stores/ui.ts`'s `settings.theme` (`'dark' | 'light' | 'system'`,
+   * default `'dark'`, so every existing install looks exactly as before
+   * until someone opts in). No `[data-theme="dark"]` counterpart: the `:root`
+   * block above already *is* the dark theme, so an explicit dark selector
+   * would just repeat it.
+   *
+   * Same hue families as the dark set above (the 210° background/foreground
+   * axis, the clay-orange accent), lightness inverted and re-tuned for
+   * contrast on a white background rather than mechanically flipped — a
+   * straight 100-minus-L on `--muted-foreground` or `--code-fg`, for
+   * instance, reads as too pale to use as real text on white.
+   */
+  :root[data-theme='light'] {
+    /* The elevation ladder. Same direction as the dark theme's — --bg-1 is
+     * the page and the darkest, --bg-4 is pure white — but deliberately NOT a
+     * mirror of its values, because a light surface does not behave like a
+     * dark one.
+     *
+     * Two things the mirrored version got wrong, and this fixes:
+     *
+     * Uneven steps. The eye compresses lightness near white, so the dark
+     * theme's equal 2.75-point step reads as four clear levels down there and
+     * as almost nothing up here. The steps shrink as they approach white —
+     * 3.5, then 2, then 1.5 — which is what makes them read as even.
+     *
+     * Saturation rises as it darkens, from none at white to 16% at the page.
+     * A flat low saturation across the whole range is what makes light greys
+     * look washed out rather than clean; light interfaces worth copying put a
+     * little colour back as the grey deepens. The hue stays the dark theme's,
+     * so both themes share a character. */
+    --bg-1: 0 0% 93%; /* #ededed */
+    --bg-2: 0 0% 96.5%; /* #f6f6f6 */
+    --bg-3: 0 0% 98.5%; /* #fbfbfb */
+    --bg-4: 0 0% 100%; /* #ffffff */
+
+    /* Borders go the OTHER WAY here, and that is the whole point.
+     *
+     * In the dark theme a border is the panel level drawn as a line — one
+     * step up the ladder from the surface, because on a dark ground a lighter
+     * line is what an edge looks like. Mirroring those values onto a light
+     * ground gave borders that were lighter than the page, and --bd-3 was
+     * literally white: a search field outlined in white on a near-white page
+     * has no outline. Separators had the same problem.
+     *
+     * So the light theme's borders step DOWN from the page instead, keeping
+     * the ladder's own order — --bd-1 quietest, --bd-3 strongest — and the
+     * steps widen as they descend, because lightness reads as compressed near
+     * white and an even-looking ladder needs uneven numbers. Nothing is as
+     * dark as the icons at 55%: an edge has to be seen without being read,
+     * and a line that strong on every input and every separator turns the
+     * page into a grid. */
+    --bd-1: 0 0% 89%;
+    --bd-2: 0 0% 85%;
+    --bd-3: 0 0% 80%;
+
+    /* Tinted rather than neutral, for the same reason the backgrounds are:
+     * flat grey text on faintly cool surfaces reads as muddy. Both clear
+     * contrast comfortably — 12.3:1 and 5.1:1 against the page. The hover
+     * step keeps its relationship to --c-1: it moves further from the page,
+     * which is darker here and brighter in the dark theme. */
+    --c-1: 215 20% 17%; /* #232a34 */
+    --c-2: 215 12% 40%; /* #5a6472 */
+    --c-2-hover: 215 22% 11%;
+    --muted-foreground-hover: 215 25% 8%;
+
+    /* Deliberately NOT the dark theme's #60a5fa.
+     *
+     * That shade is tuned to glow against near-black. On white it is pale
+     * enough that white text on a fill of it lands around 2.3:1, which is not
+     * a stylistic preference — it is below the point where the label on a
+     * button can be read at all. Deeper and less saturated keeps the same blue
+     * doing the same job on a background that is the opposite brightness. */
+    --accent-1: 217 80% 48%; /* #1864dc */
+    --accent-1-hover: 217 80% 36%;
+
+    /* Monochrome means it inverts, rather than holding one value. OpenAI draws
+     * its mark near-white on dark and near-black on light; keeping the dark
+     * value here left a near-white fill on a near-white page. The other two
+     * brands are hues and read on either ground, so they need no light variant. */
+    --brand-codex: 0 0% 12%;
+
+    /* The Send button's fill, which is not the mark.
+     *
+     * The mark is near-black here and should stay that way — that is how
+     * OpenAI draws it. A button the size of Send filled in near-black is a
+     * hole in the page, and the other two assistants get a colour rather than
+     * a slab. Grey keeps it recognisably the monochrome one without the
+     * weight. The arrow turns dark to go with it: a mid grey is too light to
+     * carry a pale glyph, and the pair at these two values clears 5:1. */
+    --send-codex: 0 0% 62%;
+    --send-codex-fg: var(--c-1);
+
+
+    /* Tailwind's 600 shades where the dark theme uses its 400s: the same
+     * eight hues, dark enough to read as themselves against white instead of
+     * washing out. Same reasoning as --accent-1's light value above. */
+    /* Lighter than the dark theme's: the same opacity that reads as a hint of
+     * shade over near-black reads as a bruise over white. */
+    --scrim: 215 25% 20% / 0.32;
+
+    --ic-grey: 0 0% 55%;
+    --ic-blue: 221 83% 53%;
+    --ic-cyan: 192 91% 36%;
+    --ic-emerald: 135.4 52% 34%; /* #2a8441 */
+    --ic-emerald-soft: 135.4 56% 26%;
+    --ic-amber: 48 78% 34%; /* #9a7f13 */
+    --ic-amber-soft: 48 80% 27%;
+    --ic-orange: 27 100% 38%;
+    --ic-red: 358.8 62% 48%; /* #c62f32 */
+    --ic-red-soft: 358.8 66% 39%;
+    --ic-pink: 333 71% 51%;
+    --ic-purple: 272 81% 56%;
+
+    /* Far softer than the dark theme's: on a pale ground the same opacity
+     * reads as a smudge. Same two roles, same two names. */
+    --sh-1: 0 1px 2px hsl(0 0% 20% / 0.06);
+    --sh-2:
+      0 4px 14px -4px hsl(0 0% 20% / 0.1), 0 1px 3px -1px hsl(0 0% 20% / 0.06);
+
+    color-scheme: light;
+    --background: 0 0% 100%;
+    --foreground: 210 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 6% 10%;
+    /* --card is already white here, so "one step lighter" inverts to one
+       step darker — the same subtle, still-a-card distinction the dark
+       value makes. */
+    --card-active: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 6% 10%;
+    /* Inverted from the dark theme's near-white: `primary` is the
+       highest-contrast "invert" surface, whichever direction that is. */
+    --primary: 210 6% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 210 6% 10%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 220 9% 40%;
+    /* Emphasis on a light ground is darker, not lighter.
+     *
+     * This was one point below the page, which is what an accent step looks
+     * like when it is mirrored from a dark theme instead of re-tuned: a fill
+     * that means "this row is selected" or "your pointer is here" and says it
+     * so quietly that a hover read as nothing happening at all. It moves away
+     * from the page by a real step now, in the direction that reads as
+     * emphasis here. */
+    --accent: 0 0% 88%;
+    --accent-hover: 0 0% 83%;
+    --accent-foreground: 210 6% 10%;
+    --destructive: var(--ic-red);
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 88%;
+    --border-strong: 0 0% 78%;
+    --surface-muted: 210 20% 96%;
+    --input: 0 0% 88%;
+    --ring: 210 6% 20%;
+    /* Darkened from the dark theme's 64% lightness — that value is washed
+       out against white. */
+    --accent2: 16 72% 50%;
+    --code-fg: 25 55% 32%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      'BaselineColon',
+      'Inter',
+      system-ui,
+      -apple-system,
+      sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  @font-face {
+    font-family: 'BaselineColon';
+    src: local('SF Pro Text'), local('Helvetica Neue'), local('Helvetica'), local('Arial');
+    unicode-range: U+003A;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  /* One scrollbar for the whole app. This used to be the centre column's own
+   * variant (`.panel-scroll`) while everything else got a `--border` thumb and
+   * an `--accent` hover — two designs for the same object, and the nicer one
+   * was on two surfaces out of the app. Promoted to the default; the variant
+   * is gone rather than kept in step by hand.
+   *
+   * Colours come from the elevation ladder, so the thumb reads as a surface
+   * sitting above whatever it scrolls, and hovering lifts it one more step.
+   * Radius comes from the radius set. Nothing here is a one-off value. */
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--bg-3));
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: var(--r-4);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--bg-4));
+    background-clip: padding-box;
+  }
+  /* Scrollbars stay hidden until the pointer is over the scrollable area or it
+     was just scrolled (`.scroll-active`, toggled by installScrollbarAutoHide
+     in lib/scrollbarAutoHide.ts, which clears it 2s after the last scroll). */
+  *:hover::-webkit-scrollbar-thumb,
+  .scroll-active::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
+
+  /* Scrolls without reserving a gutter for the bar.
+   *
+   * A styled scrollbar in Chromium takes layout width whether or not there is
+   * anything to scroll, so a panel using one is permanently narrower by a
+   * strip of empty page down its right edge — which is what "not native"
+   * looks like on macOS, where the system bar floats over the content and
+   * only while scrolling.
+   *
+   * `.tree-scroll` is the older name for the same thing and is kept because a
+   * dozen places say it; new code should say `.scroll-plain`. */
+  .tree-scroll,
+  .scroll-plain {
+    scrollbar-width: none;
+  }
+  .tree-scroll::-webkit-scrollbar,
+  .scroll-plain::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .composer-pm {
+    min-height: 1.4rem;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .composer-pm p {
+    margin: 0;
+  }
+  .composer-pm p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground) / 0.7);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .titlebar-drag {
+    -webkit-app-region: drag;
+  }
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+@layer components {
+  /* Relative-lightness hover/active — see plan/color-schema-migration.md.
+   * An element sets `--bg` to a *full color* for whichever bg-N level it's
+   * actually on (`hsl(var(--bg-N))`, not the bare `var(--bg-N)` triplet —
+   * relative color syntax's `from` clause doesn't accept a nested `hsl()`
+   * call as its origin, confirmed against this app's own Electron/Chromium
+   * build, not assumed). Hover/active compute a fixed lightness bump *off
+   * that value*, rather than a separate hover-specific color per level.
+   *
+   * The other gotcha this build has: `l` inside `hsl()`'s relative-syntax
+   * `calc()` is a bare number (0–100), not a `<percentage>` — `calc(l + 5%)`
+   * mixes incompatible types and the whole declaration is silently dropped
+   * as invalid (no warning). `calc(l + 5)` is the same 5-point bump,
+   * correctly typed.
+   *
+   * The same class works unchanged at any level and in either theme —
+   * nothing here has to be kept in sync by hand when a new level is added
+   * or a theme's lightness values change.
+   *
+   * Not yet used by any component — this defines the mechanism ahead of
+   * Step 2's actual migration, so it can be reviewed on its own first.
+   */
+  .surface-hoverable {
+    background-color: var(--bg);
+    transition: background-color 150ms;
+  }
+  .surface-hoverable:hover {
+    background-color: hsl(from var(--bg) h s calc(l + 5));
+  }
+  .surface-hoverable:active,
+  .surface-hoverable[data-active='true'] {
+    background-color: hsl(from var(--bg) h s calc(l + 10));
+  }
+
+  .ProseMirror {
+    @apply outline-none min-h-full p-6 w-full;
+    /* `--editor-font-size` is set (as a CSS custom property, so it inherits
+       past the wrapper it's declared on) by NoteEditor.tsx; every other
+       `.ProseMirror` surface — composer, live editor, chat — never sets it,
+       so this falls back to the size that shipped before that wiring. */
+    font-size: var(--editor-font-size, 15px);
+    line-height: 1.7;
+  }
+  .ProseMirror.composer-pm {
+    @apply p-0 w-full min-h-0;
+    min-height: 1.4rem;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .ProseMirror.composer-pm > *:first-child {
+    @apply mt-0 pt-0;
+  }
+  .ProseMirror.composer-pm p {
+    @apply m-0;
+  }
+  /* h1/h2/h3 share one small top margin and no bottom margin — a heading
+     leads into what follows it rather than sitting boxed off from it. The
+     top margin is one body text line (13px * 1.7 line-height, see above),
+     so the gap above a heading reads the same as one blank line of text. */
+  .ProseMirror h1 {
+    @apply text-[26px] font-semibold mt-[22px] mb-0 first:mt-0;
+    letter-spacing: -0.02em;
+  }
+  .ProseMirror h2 {
+    @apply text-[17px] font-semibold mt-[22px] mb-0;
+    letter-spacing: -0.01em;
+  }
+  .ProseMirror > *:first-child {
+    @apply mt-0 pt-0;
+  }
+  .ProseMirror h3 {
+    @apply text-[16px] font-semibold mt-[22px] mb-0;
+  }
+  .ProseMirror p {
+    @apply my-0;
+  }
+  .ProseMirror ul {
+    @apply list-disc pl-6 my-0;
+  }
+  .ProseMirror ol {
+    @apply list-decimal pl-6 my-0;
+  }
+  .ProseMirror li {
+    margin: 3px 0;
+    line-height: 1.35;
+  }
+  .ProseMirror li > p {
+    @apply my-0;
+  }
+  .ProseMirror li > ul,
+  .ProseMirror li > ol {
+    @apply my-1;
+  }
+  .ProseMirror code {
+    @apply text-[11px] font-mono;
+  }
+  /* The background/padding/rounding is an inline-code-span treatment, so it
+     is scoped off of `pre > code` — applied to the whole element, an inline
+     `<code>` wrapping a multi-line code block draws that background as a
+     separate box per line instead of one block, since inline boxes break at
+     line boundaries. The block itself already gets one background from
+     `.ProseMirror pre` below. */
+  .ProseMirror :not(pre) > code {
+    @apply rounded bg-muted px-1 py-0.5;
+    color: hsl(var(--code-fg));
+  }
+  .ProseMirror pre {
+    @apply rounded-[10px] bg-foreground/[0.06] p-3 text-[11px] font-mono overflow-x-auto my-3;
+  }
+  .ProseMirror blockquote {
+    @apply border-l-2 border-accent-1 pl-4 ml-4 my-3;
+  }
+  /* A `> [!tip] Title` blockquote gets the `.callout` treatment via
+     decoration (see extensions/Callout.ts) rather than a different node
+     type, so the plain-blockquote box model above needs resetting here —
+     `.callout` itself only ever supplies padding/margin for a bare `<div>`,
+     never having had a competing blockquote rule to override. The marker
+     paragraph (`[!tip] Title` itself) is hidden; a real title bar renders
+     in its place as a widget decoration. */
+  .ProseMirror blockquote.callout {
+    @apply ml-0 pl-3;
+  }
+  .ProseMirror .callout-marker-line {
+    display: none;
+  }
+  .ProseMirror a {
+    @apply text-accent-1 underline decoration-accent-1 underline-offset-2 transition-colors hover:text-accent-1-hover hover:decoration-accent-1-hover;
+  }
+  /* The element picker scrolls, but shows no scrollbar — the list is short
+     and a bar inside a small floating menu is pure noise. */
+  .slash-menu {
+    scrollbar-width: none;
+  }
+  .slash-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* --- Notion-style note editor ------------------------------------- */
+  /* The editor is the whole scroll surface, so the host has to fill it or
+     clicking below the last paragraph misses the editable area entirely. */
+  .note-editor-host {
+    @apply h-full;
+  }
+  .note-editor-host > .ProseMirror {
+    @apply min-h-full;
+    /* Left is a gutter the drag handle floats in, wide enough to hold it;
+       right has no such reason to be different, so it matches rather than
+       falling back to the base .ProseMirror rule's narrower 1.5rem. */
+    padding-left: 4rem;
+    padding-right: 4rem;
+  }
+  /* The line showing where a dragged block will land. StarterKit's Dropcursor
+     draws it, but its default colour is nearly invisible on this background. */
+  .ProseMirror-dropcursor,
+  .prosemirror-dropcursor-block,
+  .prosemirror-dropcursor-inline {
+    @apply bg-accent-1;
+    border-radius: 2px;
+  }
+  /* Selecting text, everywhere in the app.
+   *
+   * The same accent the wikilink chip is filled with, so a highlighted passage
+   * and a link inside it are recognisably the same blue. Stronger than the
+   * chip's twelve per cent, and that is not a different colour: a chip sits
+   * on the page with nothing over it, while a selection has words on top and
+   * has to stay legible under them.
+   *
+   * Both rules are needed — Chromium applies `::selection` per element rather
+   * than inheriting it, so one on `body` alone leaves everything nested
+   * unstyled and browser-blue.
+   *
+   * The text colour is left alone deliberately: forcing white makes a
+   * selection inside coloured text — a link, a heading — lose what the colour
+   * was saying. */
+  ::selection {
+    background: hsl(var(--accent-1) / 0.3);
+  }
+  ::-moz-selection {
+    background: hsl(var(--accent-1) / 0.3);
+  }
+
+  /* Selected block-level nodes (a table, an image) need a visible selection —
+     ProseMirror gives no default. */
+  .ProseMirror.note-editor .ProseMirror-selectednode {
+    @apply rounded-[4px] outline outline-2 outline-accent-1/40;
+  }
+
+  /* A separator is a row, not a hairline.
+   *
+   * It had no styling here at all — only the chat bubble's copy — so the editor
+   * fell back to the browser's default `<hr>`: a line a couple of pixels tall
+   * with nothing around it. Two things followed from that, and they are the
+   * same thing twice. There was nowhere to point: the gutter handles find the
+   * block under the pointer, and a two-pixel target between two margins is not
+   * findable, so a separator was the one block with no `+` and no grip. And
+   * there was nowhere to click, so it could not be selected or deleted — the
+   * only way to remove one was to switch to the markdown and delete the
+   * dashes.
+   *
+   * So the box is the height of a line of text and the rule is drawn inside it.
+   * The visible weight does not change; what changes is that the block now
+   * occupies the row it always claimed. */
+  .ProseMirror hr,
+  .live-block hr {
+    position: relative;
+    height: 0;
+    border: 0;
+    background: none;
+    /* The hit area. Margin would not do — margin belongs to no block, so the
+       pointer there finds nothing, which is the bug. */
+    padding: 10px 0;
+    margin: 6px 0;
+    cursor: pointer;
+  }
+  .ProseMirror hr::before,
+  .live-block hr::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: hsl(var(--bd-2));
+  }
+  /* Selected, it says so on the line rather than by drawing a box around ten
+     pixels of empty padding. */
+  .ProseMirror hr.ProseMirror-selectednode {
+    outline: none;
+  }
+  .ProseMirror hr.ProseMirror-selectednode::before {
+    background: hsl(var(--accent-1));
+    height: 2px;
+  }
+  /* --- tables ---------------------------------------------------------
+     The rounded corners and the clip both live on the wrapper, not on
+     <table> itself: a border-radius on a table element doesn't clip cell
+     backgrounds on its own, so getting the header fill to round out meant
+     `overflow: hidden` on the table — which also clipped a sliver off the
+     table's own bottom/right edge (a border-collapse: separate + fixed
+     layout quirk), which is why that edge's border used to go missing.
+     An ordinary block element doesn't have that quirk, so the wrapper
+     draws the one true outer frame and cells only ever draw the lines
+     *between* them — right and bottom, skipped on the last column/row so
+     nothing doubles up with the frame. */
+  .ProseMirror.note-editor .tableWrapper {
+    @apply my-4 max-w-full overflow-x-auto overflow-y-hidden rounded-[10px] border border-border;
+  }
+  .ProseMirror.note-editor table {
+    @apply w-full text-[13px];
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+  }
+  .ProseMirror.note-editor th,
+  .ProseMirror.note-editor td {
+    @apply relative align-top;
+    padding: 7px 10px;
+    border-right: 1px solid hsl(var(--border));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .ProseMirror.note-editor th:last-child,
+  .ProseMirror.note-editor td:last-child {
+    border-right: none;
+  }
+  .ProseMirror.note-editor tr:last-child td {
+    border-bottom: none;
+  }
+  .ProseMirror.note-editor th {
+    @apply text-left font-semibold text-foreground;
+  }
+  .ProseMirror.note-editor td {
+    @apply text-foreground/90;
+  }
+  .ProseMirror.note-editor tbody tr:hover td {
+    background: hsl(var(--border) / 0.3);
+  }
+  .ProseMirror.note-editor th > p,
+  .ProseMirror.note-editor td > p {
+    @apply my-0;
+  }
+  /* The cell being edited. */
+  .ProseMirror.note-editor .selectedCell::after {
+    @apply pointer-events-none absolute inset-0 bg-accent-1/[0.12];
+    content: '';
+  }
+  /* Column resize grip: invisible until grabbed, then a clear blue rule. */
+  .ProseMirror.note-editor .column-resize-handle {
+    @apply pointer-events-none absolute bottom-0 top-0 z-pane w-[3px] bg-accent-1;
+    right: -2px;
+  }
+  .ProseMirror.note-editor.resize-cursor {
+    cursor: col-resize;
+  }
+  .ProseMirror ul[data-type='taskList'],
+  .live-block ul[data-type='taskList'],
+  .chat-bubble ul[data-type='taskList'] {
+    @apply list-none pl-0;
+  }
+  .live-block ul[data-type='taskList'],
+  .chat-bubble ul[data-type='taskList'] {
+    @apply my-2;
+  }
+  .ProseMirror ul[data-type='taskList'] {
+    @apply my-0;
+  }
+  .ProseMirror ul[data-type='taskList'] li,
+  .live-block ul[data-type='taskList'] li,
+  .chat-bubble ul[data-type='taskList'] li {
+    @apply flex gap-2 items-start;
+  }
+  .ProseMirror ul[data-type='taskList'] li > label,
+  .live-block ul[data-type='taskList'] li > label,
+  .chat-bubble ul[data-type='taskList'] li > label {
+    @apply inline-flex items-center shrink-0 m-0;
+    height: 1lh;
+  }
+  /* A native checkbox cannot be styled beyond `accent-color`, so it is drawn
+     from scratch: the control is stripped with `appearance: none` and the tick
+     is a rotated pseudo-element. Applied to every surface that renders task
+     lists so a KANBAN row looks the same in the editor, the preview and chat. */
+  .ProseMirror ul[data-type='taskList'] li > label > input,
+  .live-block ul[data-type='taskList'] li > label > input,
+  .chat-bubble ul[data-type='taskList'] li > label > input {
+    @apply relative m-0 block shrink-0 cursor-pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1.5px solid hsl(0 0% 100% / 0.28);
+    background: transparent;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+  .ProseMirror ul[data-type='taskList'] li > label > input:hover,
+  .live-block ul[data-type='taskList'] li > label > input:hover,
+  .chat-bubble ul[data-type='taskList'] li > label > input:hover {
+    border-color: hsl(0 0% 100% / 0.45);
+    background: hsl(0 0% 100% / 0.06);
+  }
+  .ProseMirror ul[data-type='taskList'] li > label > input:checked,
+  .live-block ul[data-type='taskList'] li > label > input:checked,
+  .chat-bubble ul[data-type='taskList'] li > label > input:checked {
+    background: hsl(var(--accent-1));
+    border-color: hsl(var(--accent-1));
+  }
+  /* The tick: two borders of a rotated box, which stays crisp at any zoom
+     where a font glyph or background image would not. */
+  .ProseMirror ul[data-type='taskList'] li > label > input:checked::after,
+  .live-block ul[data-type='taskList'] li > label > input:checked::after,
+  .chat-bubble ul[data-type='taskList'] li > label > input:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(43deg);
+  }
+  /* Completed items recede and are struck through, like a normal checklist. */
+  .ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div,
+  .live-block ul[data-type='taskList'] li[data-checked='true'] > div,
+  .chat-bubble ul[data-type='taskList'] li[data-checked='true'] > div {
+    @apply text-muted-foreground line-through;
+  }
+  .ProseMirror ul[data-type='taskList'] li > div,
+  .live-block ul[data-type='taskList'] li > div,
+  .chat-bubble ul[data-type='taskList'] li > div {
+    @apply min-w-0;
+  }
+  .ProseMirror ul[data-type='taskList'] li > div > p:first-child,
+  .live-block ul[data-type='taskList'] li > div > p:first-child,
+  .chat-bubble ul[data-type='taskList'] li > div > p:first-child {
+    @apply mt-0;
+  }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply text-muted-foreground/50 float-left h-0 pointer-events-none;
+  }
+  /* The note editor's "Type '/' for commands" hint (extensions/index.ts's
+     Placeholder config) needs its own rule: `showOnlyCurrent` only ever marks
+     the focused empty line with `is-empty`, not `is-editor-empty` — that
+     class is reserved for "the whole document is empty" (the rule above,
+     shared with the chat composer). Scoped to `.note-editor` so an empty
+     line elsewhere (e.g. the composer) doesn't pick up this per-line hint. */
+  .ProseMirror.note-editor p.is-empty::before {
+    content: attr(data-placeholder);
+    @apply text-muted-foreground/50 float-left h-0 pointer-events-none;
+  }
+  .ProseMirror .md-table-container {
+    @apply relative my-3;
+  }
+  .ProseMirror .md-table-wrap {
+    @apply max-w-full overflow-auto rounded-[8px] border border-border;
+    max-height: 70vh;
+  }
+  .ProseMirror .md-table-wrap table {
+    @apply w-auto min-w-full text-[14px];
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .ProseMirror .md-table-wrap th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .ProseMirror th,
+  .ProseMirror td {
+    @apply px-3 py-2 align-top;
+    border-right: 1px solid hsl(var(--border));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .ProseMirror th:last-child,
+  .ProseMirror td:last-child {
+    border-right: 0;
+  }
+  .ProseMirror tr:last-child td {
+    border-bottom: 0;
+  }
+  /* No fill on a header row.
+     It was the only painted surface in a table, and a fixed grey cannot sit on
+     a surface that moves — inside an assistant's suggestion, which is tinted,
+     it read as a hole. A header is already told apart by its weight and by the
+     line under it, both of which follow whatever it is placed on. */
+  .ProseMirror th {
+    @apply font-medium text-left;
+  }
+  .ProseMirror .wikilink,
+  .chat-bubble .wikilink {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 5px;
+    border-radius: 6px;
+    /* The accent, read from the one place it is defined. This was a literal
+       copy of what the accent used to be, so when the accent was darkened
+       every blue in the app moved and this one did not. */
+    background: hsl(var(--accent-1) / 0.12);
+    border: 1px solid hsl(var(--accent-1) / 0.35);
+    color: hsl(var(--foreground));
+    font-size: 0.88em;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+    vertical-align: middle;
+    /* Take the full width available before clipping, rather than a fixed cap:
+       a long note path fills the line and only then gets an ellipsis. */
+    max-width: 100%;
+    white-space: nowrap;
+  }
+  .ProseMirror .wikilink .wikilink-label,
+  .chat-bubble .wikilink .wikilink-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .ProseMirror .wikilink .wikilink-icon,
+  .chat-bubble .wikilink .wikilink-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    font-size: 1em;
+    line-height: 1;
+  }
+  .ProseMirror .wikilink:hover,
+  .chat-bubble .wikilink:hover {
+    background: hsl(var(--accent-1) / 0.22);
+    border-color: hsl(var(--accent-1) / 0.6);
+  }
+  /* A finished item is plain text.
+   *
+   * Everything inside it gives up its own styling — a link's chip, a tag's
+   * pill, inline code's box and typeface, bold, italic, a highlight. Not for
+   * tidiness: it is what makes the strike a single line.
+   *
+   * A chip is `inline-flex`, which takes it out of the surrounding text run, so
+   * the parent's line stops at its edge. Re-applying the strike inside each one
+   * — which is what this used to do for wikilinks — does not mend that. It
+   * draws a second, shorter line at a different height, boxed away from the
+   * first: three fragments where there should be one.
+   *
+   * Reset everything and the question stops being asked. There is one run of
+   * text, so there is one line across it, and nothing here needs to know which
+   * kinds of thing might appear inside a task.
+   *
+   * It reads right, too. A border, a fill and a mark are an invitation to do
+   * something. On a struck-through line they invite you to do what is already
+   * done.
+   *
+   * Named without a surface in front of it, unlike its neighbours. The same
+   * markdown is drawn in four places — the editor, the preview, a live block, a
+   * chat bubble — and a rule listing three of them is a rule that is wrong in
+   * the fourth, and in the fifth nobody has written yet. Two attribute
+   * selectors carry enough weight to win on their own.
+   */
+  ul[data-type='taskList'] li[data-checked='true'] > div,
+  ul[data-type='taskList'] li[data-checked='true'] > div * {
+    display: inline;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    /* `none`, not `inherit`.
+
+       An ancestor's line-through cannot be switched off by a descendant — it is
+       drawn over them whatever they say — so `none` here does not remove the
+       strike. What it removes is a *second* one.
+
+       `inherit` looked right and was the bug: it makes this element declare a
+       decoration of its own, and a decoration declared here is drawn from this
+       element's baseline rather than the parent's. Two lines a pixel apart,
+       which is what "the line is slightly lower on the link" was. */
+    text-decoration: none;
+  }
+  /* Marks go with the boxes they sat in — on a struck line an icon is a fleck
+     the line has to dodge, pointing at something already finished. */
+  ul[data-type='taskList'] li[data-checked='true'] > div .codicon,
+  ul[data-type='taskList'] li[data-checked='true'] > div svg,
+  ul[data-type='taskList'] li[data-checked='true'] > div img {
+    display: none;
+  }
+
+  .ProseMirror .footnote-ref {
+    @apply text-accent-1;
+  }
+  .ProseMirror .footnote-ref a {
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ProseMirror .footnote-definition {
+    @apply my-1.5 flex items-start gap-2 rounded-[8px] px-2 py-1.5;
+    background: hsl(0 0% 100% / 0.03);
+    font-size: 0.9em;
+  }
+  .ProseMirror .footnote-definition-label {
+    @apply text-muted-foreground shrink-0;
+  }
+  .ProseMirror .footnote-definition-body {
+    @apply min-w-0 flex-1;
+  }
+  .ProseMirror .footnote-backref {
+    @apply text-muted-foreground shrink-0;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .ProseMirror .inline-tag {
+    @apply rounded-[5px] px-1 py-0.5;
+    background: hsl(var(--accent2) / 0.14);
+    color: hsl(var(--accent2));
+    font-size: 0.9em;
+  }
+
+  .ProseMirror .inline-math {
+    @apply mx-0.5;
+  }
+  .ProseMirror .block-math {
+    @apply my-2 overflow-x-auto rounded-[8px] px-3 py-3 text-center;
+    background: hsl(0 0% 100% / 0.03);
+  }
+
+  .ProseMirror .html-block {
+    @apply my-2 overflow-x-auto rounded-[8px] px-3 py-2;
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+
+  .ProseMirror .custom-svg {
+    @apply my-2 flex items-center justify-center overflow-x-auto rounded-[8px] px-3 py-3;
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+  .ProseMirror .custom-svg svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .ProseMirror .embed {
+    @apply my-2 overflow-hidden rounded-[8px];
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+  .ProseMirror .embed-iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+  }
+
+  .ProseMirror .block-config-error {
+    @apply text-muted-foreground text-[11px] italic;
+  }
+
+  .ProseMirror .chart-block {
+    @apply my-2 overflow-x-auto rounded-[8px] px-3 py-3;
+    background: hsl(0 0% 100% / 0.03);
+    border: 1px solid hsl(var(--border));
+  }
+  .ProseMirror .chart-svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Comment anchors are decorations, never marks — they must not end up in
+     the user's markdown. See extensions/CommentHighlight.ts.
+     Coloured with the app's own blue (the same one active states use), not a
+     highlighter yellow: a comment marks a passage, it does not warn about it. */
+  /* A solid fill rather than a translucent wash: at 45% opacity over a dark
+     page the mark read as a smudge, and the text inside it lost contrast
+     against the body around it. Filled and rounded, it reads as one deliberate
+     object — the same shape a text selection makes.
+
+     `color` is set alongside the background for the same reason: the body text
+     colour is tuned for the page, not for sitting on a saturated blue. */
+  .ProseMirror .comment-mark {
+    background: hsl(var(--accent-1));
+    color: rgb(255 255 255);
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding: 0 1px;
+    cursor: pointer;
+  }
+  /* The thread you clicked in the sidebar: brighter, so it can be found at a
+     glance after the note scrolls, without becoming a different kind of mark. */
+  .ProseMirror .comment-mark-focused {
+    background: hsl(var(--accent-1));
+  }
+  /* The passage being commented on right now, before the thread exists. Dimmer
+     than a real mark on purpose — nothing has been saved yet. */
+  .ProseMirror .comment-mark-pending {
+    background: hsl(var(--accent-1) / 0.65);
+    color: rgb(255 255 255);
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding: 0 1px;
+  }
+
+  /* Find-in-note. Amber rather than the comment mark's blue on purpose — the
+     two are unrelated kinds of highlight, and sharing a colour would read as
+     the same feature. */
+  .ProseMirror .search-match {
+    background: rgb(251 191 36 / 0.35);
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  /* The match Next/Previous is currently on. */
+  .ProseMirror .search-match-current {
+    background: rgb(251 191 36 / 0.75);
+  }
+
+  /* The passage an assistant is working on, while it is working on it.
+     Colour comes from whichever assistant is answering, so the mark says who
+     as well as what. Three things at once, and each is doing a job: a resting
+     tint that names the passage, a light sweeping across it left to right that
+     says the work is still running, and a soft outer glow so the passage is
+     findable in a full page of text without being shouted at.
+
+     `box-decoration-break: clone` is what keeps it whole across a line break —
+     without it a passage wrapping two lines gets one gradient stretched over
+     both fragments and the sweep tears in the middle. */
+  .ProseMirror .ai-thinking {
+    --ai-glow: var(--brand-claude);
+    border-radius: 3px;
+    padding: 0 1px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    background-image:
+      linear-gradient(
+        100deg,
+        hsl(var(--ai-glow) / 0) 20%,
+        hsl(var(--ai-glow) / 0.14) 38%,
+        hsl(var(--ai-glow) / 0.42) 50%,
+        hsl(var(--ai-glow) / 0.14) 62%,
+        hsl(var(--ai-glow) / 0) 80%
+      ),
+      linear-gradient(hsl(var(--ai-glow) / 0.12), hsl(var(--ai-glow) / 0.12));
+    background-size:
+      220% 100%,
+      100% 100%;
+    background-repeat: no-repeat;
+    box-shadow:
+      0 0 0 1px hsl(var(--ai-glow) / 0.22),
+      0 0 14px -3px hsl(var(--ai-glow) / 0.55);
+    animation: ai-sweep 1.5s linear infinite;
+  }
+
+  /* The wording being replaced, while a suggestion is on offer. Struck and
+     dimmed rather than hidden: the decision is between two things, and one of
+     them disappearing makes it a decision about nothing. */
+  .ProseMirror .ai-old {
+    /* The line has to be seen — it was once drawn in a half-transparent grey
+       *and* under a passage faded to 45%, so it was a faint line under a faint
+       word. The text dims, the line does not.
+
+       Its colour is the assistant's own, the same one lighting the passage and
+       tinting the offered wording. A red of its own said "error" about an
+       ordinary suggestion, and made one event look like three unrelated ones. */
+    --ai-glow: var(--brand-claude);
+    color: hsl(var(--c-2));
+    text-decoration: line-through;
+    text-decoration-color: hsl(var(--ai-glow) / 0.85);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0;
+  }
+  .ProseMirror .ai-old[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-old[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+
+  /* The wording on offer, drawn right after it in the assistant's colour and
+     arriving with a short fade so the eye is taken to it. */
+  /* The wording on offer: a named area in the assistant's colour, drawn as one
+     shape rather than as a faint underline. It is a thing to be accepted or
+     turned down, so it is bounded — a ring around it says where it ends, which
+     an underline never did once the rewrite ran past one line. */
+  .ProseMirror .ai-new {
+    --ai-glow: var(--brand-claude);
+    border-radius: var(--r-3);
+    padding: 1px 5px;
+    margin-left: 3px;
+    background: hsl(var(--ai-glow) / 0.12);
+    box-shadow: inset 0 0 0 1px hsl(var(--ai-glow) / 0.45);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    animation: ai-arrive 0.28s ease-out;
+  }
+
+  /* The accept control takes the same colour, inherited rather than told: it
+     sits inside the offer, so it is already under the right `--ai-glow` and
+     cannot fall out of step with the passage it belongs to. */
+  .ProseMirror .ai-accept {
+    background: hsl(var(--ai-glow) / 0.9);
+    /* White is literal and right on a saturated fill in either theme — the same
+       call the app's own confirm button makes, and for the same reason: the
+       mistake is a fixed colour on a surface that moves, and this surface is
+       the assistant's own colour, which does not. */
+    color: #fff;
+  }
+  /* Except OpenAI's, which is near-white by design and needs a dark label. */
+  .ProseMirror .ai-new[data-provider='codex'] .ai-accept {
+    color: hsl(210 6% 10%);
+  }
+  .ProseMirror .ai-accept:hover {
+    background: hsl(var(--ai-glow));
+  }
+  .ProseMirror .ai-accept .codicon,
+  .ProseMirror .ai-accept .codicon::before {
+    color: currentColor !important;
+  }
+  /* Where the accept and dismiss controls sit, inside the suggestion. The
+     editor must not treat them as text: no caret in them, and the words in
+     the buttons are not part of the note. */
+  .ProseMirror .ai-actions {
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  /* A rewrite that produced a list or a table cannot sit inside a sentence. */
+  .ProseMirror .ai-new-block {
+    display: block;
+    border-radius: var(--r-1);
+    margin-top: 6px;
+    margin-left: 0;
+    padding: 8px 10px;
+  }
+  .ProseMirror .ai-new-block > :first-child {
+    margin-top: 0;
+  }
+  .ProseMirror .ai-new-block > :last-child {
+    margin-bottom: 0;
+  }
+  /* On a block, the controls go under it and to the right rather than trailing
+     the final word of a list item. */
+  .ProseMirror .ai-new-block .ai-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 6px 0 0;
+  }
+
+  .ProseMirror .ai-new[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-new[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+
+  .ProseMirror .ai-thinking[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-thinking[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+
+  /* The passage just after it changed — the same colour, held for a moment and
+     let go. Without it the new wording simply appears, and the eye has nothing
+     telling it where to look after waiting several seconds for exactly that. */
+  .ProseMirror .ai-settled {
+    border-radius: 3px;
+    padding: 0 1px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    animation: ai-settle 1.4s ease-out forwards;
+  }
+  .ProseMirror .ai-settled[data-provider='claude'] {
+    --ai-glow: var(--brand-claude);
+  }
+  .ProseMirror .ai-settled[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-settled[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+
+  .ProseMirror .mermaid-block {
+    @apply my-2 overflow-x-auto rounded-[8px] px-3 py-3;
+    background: hsl(0 0% 100% / 0.03);
+    border: 1px solid hsl(var(--border));
+  }
+  /* Mermaid sizes the SVG itself; this only stops a wide diagram from forcing
+     the whole editor to scroll sideways — the block scrolls instead. */
+  .ProseMirror .mermaid-block svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .ProseMirror .mermaid-source {
+    @apply mt-1.5 overflow-x-auto whitespace-pre font-mono text-[12px] text-muted-foreground;
+  }
+
+  .ProseMirror .stat-cards-block {
+    @apply my-2 flex flex-wrap gap-2;
+  }
+  .ProseMirror .stat-card {
+    @apply flex min-w-[96px] flex-1 flex-col items-start gap-0.5 rounded-[8px] px-3 py-2;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+  }
+  .ProseMirror .stat-card-value {
+    @apply text-[16px] font-semibold leading-tight text-foreground;
+  }
+  .ProseMirror .stat-card-label {
+    @apply text-[10px] text-muted-foreground;
+  }
+
+  .ProseMirror .video-embed,
+  .ProseMirror .audio-embed {
+    display: block;
+    margin: 0.5em 0;
+    border-radius: 8px;
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+  .ProseMirror .video-embed {
+    max-width: 100%;
+    max-height: 420px;
+    background: hsl(0 0% 100% / 0.03);
+  }
+  .ProseMirror .audio-embed {
+    width: 100%;
+  }
+
+  .ProseMirror .attachment-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+    cursor: pointer;
+    vertical-align: middle;
+    max-width: 100%;
+  }
+  .ProseMirror .attachment-card:hover {
+    background: hsl(0 0% 100% / 0.05);
+  }
+  .ProseMirror .attachment-card-icon {
+    font-size: 1.1em;
+    flex-shrink: 0;
+  }
+  .ProseMirror .attachment-card[data-kind='pdf'] .attachment-card-icon {
+    color: hsl(0 72% 63%);
+  }
+  .ProseMirror .attachment-card-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    font-size: 0.9em;
+  }
+
+  .ProseMirror .toggle-block {
+    @apply my-2 rounded-[8px] px-3 py-2;
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+  .ProseMirror .toggle-summary {
+    @apply font-medium;
+    display: list-item;
+    list-style: none;
+    cursor: pointer;
+  }
+  .ProseMirror .toggle-summary::-webkit-details-marker {
+    display: none;
+  }
+  .ProseMirror .toggle-summary::before {
+    content: '';
+    display: inline-block;
+    margin-right: 6px;
+    border-style: solid;
+    border-width: 4px 0 4px 6px;
+    border-color: transparent transparent transparent hsl(var(--muted-foreground));
+    transition: transform 0.15s ease;
+    vertical-align: middle;
+  }
+  .toggle-block[open] > .toggle-summary::before {
+    transform: rotate(90deg);
+  }
+  .ProseMirror .toggle-body {
+    @apply mt-1.5 pl-3 text-foreground/80;
+    border-left: 2px solid hsl(0 0% 100% / 0.08);
+  }
+
+  .ProseMirror .tabs-block {
+    @apply my-2 overflow-hidden rounded-[8px];
+    background: hsl(var(--card));
+    border: 1px solid hsl(0 0% 100% / 0.07);
+  }
+  .ProseMirror .tabs-pills {
+    @apply flex flex-wrap gap-1 px-2 pt-2;
+  }
+  .ProseMirror .tabs-pill {
+    @apply rounded-[6px] px-2.5 py-1 text-[10px] text-muted-foreground;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .ProseMirror .tabs-pill:hover {
+    background: hsl(0 0% 100% / 0.05);
+  }
+  .ProseMirror .tabs-pill.active {
+    @apply text-foreground;
+    background: hsl(0 0% 100% / 0.08);
+    border-color: hsl(0 0% 100% / 0.1);
+  }
+  .ProseMirror .tabs-panels {
+    @apply px-3 py-2.5;
+  }
+  .ProseMirror .tab-panel:not(:first-child) {
+    display: none;
+  }
+
+  .chat-bubble {
+    overflow-wrap: break-word;
+  }
+  .chat-bubble > *:first-child {
+    @apply mt-0;
+  }
+  .chat-bubble > *:last-child {
+    @apply mb-0;
+  }
+  .chat-bubble p {
+    @apply my-2 leading-snug;
+  }
+  .chat-bubble h1 {
+    @apply text-lg font-semibold mt-3 mb-2;
+  }
+  .chat-bubble h2 {
+    @apply text-base font-semibold mt-3 mb-2;
+  }
+  .chat-bubble h3 {
+    @apply text-sm font-semibold mt-2 mb-1;
+  }
+  .chat-bubble h4,
+  .chat-bubble h5,
+  .chat-bubble h6 {
+    @apply text-sm font-semibold mt-2 mb-1;
+  }
+  .chat-bubble ul {
+    @apply list-disc pl-5 my-2;
+  }
+  .chat-bubble ol {
+    @apply list-decimal pl-5 my-2;
+  }
+  .chat-bubble li {
+    @apply my-0.5;
+  }
+  .chat-bubble li > p {
+    @apply my-0;
+  }
+  .chat-bubble code {
+    @apply rounded bg-muted px-1 py-0.5 text-[12px] font-mono;
+  }
+  .chat-bubble :not(pre) > code {
+    color: hsl(var(--code-fg));
+  }
+  .chat-bubble pre {
+    @apply rounded-md bg-foreground/[0.06] p-3 text-[12px] font-mono overflow-x-auto my-2;
+  }
+  .chat-bubble pre code {
+    @apply bg-transparent p-0;
+    color: inherit;
+  }
+
+  .code-block {
+    @apply relative my-2;
+  }
+  .code-block > pre {
+    @apply my-0;
+  }
+  .code-block > .code-copy {
+    @apply absolute top-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-md opacity-0 transition-opacity;
+    color: hsl(var(--muted-foreground));
+  }
+  .code-block:hover > .code-copy {
+    @apply opacity-100;
+  }
+  .code-block > .code-copy:hover {
+    color: hsl(var(--foreground));
+  }
+  .code-block > .code-copy.code-copied {
+    color: #4ade80;
+  }
+  .code-block > .code-copy .codicon {
+    font-size: 13px;
+  }
+
+  .md-table-actions {
+    @apply absolute top-2 right-2 z-pane flex flex-col gap-1 opacity-0 transition-opacity;
+  }
+  .md-table-container:hover > .md-table-actions {
+    @apply opacity-100;
+  }
+  .md-table-expand,
+  .md-table-copy {
+    @apply inline-flex h-6 w-6 items-center justify-center rounded-md bg-card;
+    color: hsl(var(--muted-foreground));
+  }
+  .md-table-expand:hover,
+  .md-table-copy:hover {
+    color: hsl(var(--foreground));
+  }
+  .md-table-copy.code-copied {
+    color: #4ade80;
+  }
+  .md-table-expand .codicon,
+  .md-table-copy .codicon {
+    font-size: 13px;
+  }
+  .chat-bubble blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground my-2;
+  }
+  .chat-bubble a {
+    @apply text-accent-1 underline decoration-accent-1 underline-offset-2 transition-colors hover:text-accent-1-hover hover:decoration-accent-1-hover;
+  }
+  .chat-bubble strong {
+    @apply font-semibold;
+  }
+  .chat-bubble em {
+    @apply italic;
+  }
+  .chat-bubble hr {
+    @apply my-3 h-px border-0 bg-border;
+  }
+  .chat-bubble .md-table-container {
+    @apply relative my-2;
+  }
+  .chat-bubble .md-table-wrap {
+    @apply max-w-full overflow-auto rounded-lg border border-border;
+    max-height: 60vh;
+  }
+  .chat-bubble .md-table-wrap table {
+    @apply w-auto min-w-full text-[12px];
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .chat-bubble .md-table-wrap th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .chat-bubble th,
+  .chat-bubble td {
+    @apply px-2 py-1 align-top;
+    border-right: 1px solid hsl(var(--border));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .chat-bubble th:last-child,
+  .chat-bubble td:last-child {
+    border-right: 0;
+  }
+  .chat-bubble tr:last-child td {
+    border-bottom: 0;
+  }
+  .chat-bubble th {
+    @apply font-medium text-left bg-muted;
+  }
+
+  .callout {
+    @apply my-2 rounded-md border-l-2 px-3 py-2;
+    background: hsl(var(--foreground) / 0.04);
+  }
+  .callout-title {
+    @apply flex items-center gap-1.5 text-[13px] font-semibold;
+  }
+  .callout-body {
+    @apply mt-1;
+  }
+  .callout-body > *:first-child {
+    @apply mt-0;
+  }
+  .callout-body > *:last-child {
+    @apply mb-0;
+  }
+  /* Paired with `.callout` in each selector — not just `.callout-tip` alone
+     — because a callout rendered over a real `<blockquote>` (the note
+     editor; see extensions/Callout.ts) is also matched by
+     `.ProseMirror blockquote`'s own border-color rule above, which has one
+     more element in its selector and so outranks a single bare class on
+     specificity alone, regardless of source order. */
+  .callout.callout-note,
+  .callout.callout-question {
+    border-color: hsl(var(--accent-1));
+  }
+  .callout.callout-tip,
+  .callout.callout-success {
+    border-color: rgb(52 211 153);
+  }
+  .callout.callout-important {
+    border-color: rgb(192 132 252);
+  }
+  .callout.callout-warning {
+    border-color: rgb(252 211 77);
+  }
+  .callout.callout-danger {
+    border-color: rgb(248 113 113);
+  }
+
+  @keyframes transcribe-seg-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .transcribe-seg-in {
+    animation: transcribe-seg-in 140ms ease-out both;
+  }
+
+  @keyframes transcribe-progress-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+  .transcribe-progress-sweep {
+    animation: transcribe-progress-sweep 1.4s linear infinite;
+  }
+
+  .tree-row {
+    @apply flex items-center gap-1.5 pr-2 rounded-[8px] text-[13px] cursor-pointer select-none;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    /* 1 clips descenders (g, y, p, q, j) once a child has overflow-hidden
+       (e.g. truncate) — this is about glyph rendering room, not row spacing,
+       which padding-top/bottom above already control. */
+    line-height: 1.3;
+    margin-bottom: 3px;
+  }
+  .tree-row:last-child {
+    margin-bottom: 0;
+  }
+  .tree-row:hover {
+    @apply bg-bg-2;
+  }
+  .tree-row[data-active='true'] {
+    @apply bg-bg-3 text-accent-foreground;
+  }
+  .tree-row[data-drop-target='true'] {
+    @apply bg-accent-1/15 outline outline-1 outline-accent-1/40;
+  }
+
+  .codicon[class*='codicon-'] {
+    display: inline-grid;
+    place-items: center;
+    line-height: 1;
+    vertical-align: middle;
+  }
+
+  .ProseMirror .md-image,
+  .chat-bubble .md-image {
+    @apply max-w-[75%] h-auto rounded-md my-2 block;
+  }
+
+  .live-block {
+    @apply rounded-md cursor-default my-3;
+  }
+  .live-block > :first-child {
+    @apply mt-0;
+  }
+  .live-block > :last-child {
+    @apply mb-0;
+  }
+  .live-block:has(> h1) {
+    @apply mt-9;
+  }
+  .live-block:has(> h2) {
+    @apply mt-7;
+  }
+  .live-block:has(> h3) {
+    @apply mt-5;
+  }
+  .live-editor > .live-block:first-child {
+    @apply mt-0;
+  }
+  /* The document-title group (h1 + properties badges, see LiveEditor's
+     groupFirstBlock) is always the very first thing in the document, so its
+     heading never needs the usual mt-9 spacer above it either. */
+  .md-doc-header {
+    @apply mb-4;
+  }
+  .md-doc-header .live-block:has(> h1) {
+    @apply mt-0;
+  }
+  :is(.live-block:has(> ul), .live-block:has(> ol))
+    + :is(.live-block:has(> ul), .live-block:has(> ol)) {
+    margin-top: 0;
+  }
+  :is(.live-block:has(> ul), .live-block:has(> ol)):has(
+    + :is(.live-block:has(> ul), .live-block:has(> ol))
+  ) {
+    margin-bottom: 0;
+  }
+  .live-add-block {
+    @apply min-h-[35vh] cursor-default;
+  }
+  .live-block-editor {
+    @apply w-full bg-transparent outline-none resize-none my-3 text-[15px] text-foreground;
+    font-family: inherit;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Panel separators — between the left sidebar, the centre column and the
+   * right sidebar, and above the docked terminal.
+   *
+   * Three states. At rest the separator is an empty 3px channel with three
+   * faint dots marking where to grab it. Hover holds for a beat, then the
+   * dots fade out as a blue rule takes the channel. A drag lights the rule
+   * with no beat at all.
+   *
+   * Driven by the `data-resize-handle-state` attribute the panel library
+   * writes on the handle, deliberately not by CSS `:hover`. The grab zone
+   * reaches several pixels past the separator's own box, and a drag carries
+   * on long after the pointer has left it — `:hover` would light up only on
+   * the exact 3px line and would blink out in the middle of a drag.
+   *
+   * The delay sits on the transition rather than in JavaScript, and only on
+   * the way in: leaving clears the state attribute, which drops the
+   * delayed rule back to the no-state rule below, and that one has no
+   * delay. So it arrives slowly and leaves at once, which is what VS Code
+   * does too.
+   */
+  .sash {
+    @apply relative flex items-center justify-center bg-transparent;
+  }
+  /* 3px of rule plus 2px of clearance on each side. The panels on either
+     side carry no margin here — this element is the entire gap. */
+  .sash-v {
+    @apply w-[7px] cursor-col-resize;
+  }
+  .sash-h {
+    @apply h-[7px] cursor-row-resize;
+  }
+  .sash-dots,
+  .sash-bar {
+    @apply pointer-events-none absolute;
+    transition: opacity 100ms ease-out;
+  }
+  /* Explicit insets and their own centring rather than leaning on the
+     parent's: an absolutely-positioned child of a flex container gets its
+     static position from the parent's alignment, which is correct here but
+     subtle enough to be worth not depending on.
+
+     `--sash-end` is how far short of the separator's own box the rule and
+     the dots stop, set per separator by whoever places it. A panel card
+     keeps a margin against the window's edge, so a separator that ran its
+     full length would overshoot the card beside it into that margin. The
+     far end is the only one that needs it: cards start flush at the near
+     end. Defaults to nothing, so a separator with no card beside it needs
+     to say nothing. */
+  .sash-dots {
+    @apply flex items-center justify-center opacity-100;
+  }
+  .sash-v .sash-dots {
+    @apply inset-x-0 top-0 flex-col gap-[3px];
+    bottom: var(--sash-end, 0px);
+  }
+  .sash-h .sash-dots {
+    @apply inset-y-0 left-0 flex-row gap-[3px];
+    right: var(--sash-end, 0px);
+  }
+  .sash-dot {
+    @apply block size-[2px] rounded-full bg-bg-3;
+  }
+  /* Full length, and rounded at both ends rather than cut square. */
+  .sash-bar {
+    @apply rounded-full bg-accent-1 opacity-0;
+  }
+  /* 2px of clearance, 3px of rule, 2px of clearance — the offsets are
+     written out for the same reason the dots' centring is. */
+  .sash-v .sash-bar {
+    @apply top-0 left-[2px] w-[3px];
+    bottom: var(--sash-end, 0px);
+  }
+  .sash-h .sash-bar {
+    @apply left-0 top-[2px] h-[3px];
+    right: var(--sash-end, 0px);
+  }
+  .sash[data-resize-handle-state='hover'] .sash-dots,
+  .sash[data-resize-handle-state='hover'] .sash-bar {
+    transition-delay: 300ms;
+  }
+  .sash[data-resize-handle-state='hover'] .sash-bar,
+  .sash[data-resize-handle-state='drag'] .sash-bar {
+    @apply opacity-100;
+  }
+  .sash[data-resize-handle-state='hover'] .sash-dots,
+  .sash[data-resize-handle-state='drag'] .sash-dots {
+    @apply opacity-0;
+  }
+}
+
+/* The light that travels across a passage being rewritten. It runs right to
+   left across the background, which is why the position counts down. */
+@keyframes ai-sweep {
+  from {
+    background-position:
+      160% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+}
+
+/* The mark left on a passage that just changed, fading out on its own. */
+@keyframes ai-settle {
+  from {
+    background-color: hsl(var(--ai-glow) / 0.34);
+    box-shadow: 0 0 12px -3px hsl(var(--ai-glow) / 0.5);
+  }
+  to {
+    background-color: hsl(var(--ai-glow) / 0);
+    box-shadow: 0 0 0 hsl(var(--ai-glow) / 0);
+  }
+}
+
+/* A sweep and a fade are decoration; someone who has asked for less movement
+   still needs to see which passage is being worked on, so the resting tint and
+   the outline stay and only the motion goes. */
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror .ai-thinking {
+    animation: none;
+    background-position:
+      50% 0,
+      0 0;
+  }
+  .ProseMirror .ai-settled {
+    animation: none;
+  }
+}
+
+/* The assistant's own mark, breathing, while it is working.
+   Not a spinner: a spinner is the same for every provider and says only "wait".
+   The mark says who is working, and the colour is the one already used for the
+   passage it is working on, so the two read as one event. */
+@keyframes ai-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.ai-working-mark {
+  display: inline-flex;
+  animation: ai-breathe 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-working-mark {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* A suggestion appearing beside the words it would replace. */
+@keyframes ai-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror .ai-new {
+    animation: none;
+  }
+}
+
+/* One step of a multi-step window arriving.
+   The window itself stays put and only its contents move — a whole dialog
+   flashing out and back to say "now it is thinking" is a bigger movement than
+   the news deserves. */
+/*
+ * The waiting state's placeholder lines.
+ *
+ * A shimmer rather than a progress bar, because nothing here knows how far
+ * along it is — the assistant is writing and will either answer or not. A bar
+ * that filled at a made-up rate would be claiming otherwise, and the one thing
+ * worse than waiting is being lied to about how long.
+ *
+ * The sweep is a moving highlight rather than a pulse in opacity: on the dark
+ * ground these sit on, a pulse reads as flicker.
+ */
+@keyframes capture-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.capture-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--bg-3)) 0%,
+    hsl(var(--bg-4)) 50%,
+    hsl(var(--bg-3)) 100%
+  );
+  background-size: 200% 100%;
+  animation: capture-shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-shimmer {
+    animation: none;
+  }
+}
+
+@keyframes ai-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ai-step {
+  animation: ai-step-in 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-step {
+    animation: none;
+  }
+}

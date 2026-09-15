@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Local-build entitlements: the non-restricted subset of entitlements.mac.plist.
+  The com.apple.security.cs.* keys are RESTRICTED — AMFI kills an ad-hoc-signed
+  process that claims them. They only matter under a notarized hardened runtime
+  (CI), so the local unsigned build drops them and keeps just the harmless ones.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

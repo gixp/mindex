@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- App / dock / taskbar icon: the new app background color as a full-bleed
+       rounded tile + the brand-blue frame + "M". No inner margin — the tile
+       fills the whole image. -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="#191a1b"/>
+  <rect x="14" y="14" width="996" height="996" rx="210" ry="210" fill="none" stroke="#60a5fa" stroke-width="28"/>
+  <path d="M 248 752 L 248 280 L 512 600 L 776 280 L 776 752" fill="none" stroke="#60a5fa" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

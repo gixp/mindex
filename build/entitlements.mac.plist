@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened runtime allowances. JIT + unsigned executable memory are
+         needed for Electron's V8 / native modules; debugger entitlement helps
+         in dev builds. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Microphone access. Required for `getUserMedia` to succeed in
+         packaged builds; the recorder + VAD both rely on it. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Mindex uses the microphone for voice chat with the Misha agent.</string>
+
+    <!-- Speech recognition is invoked indirectly via whisper.cpp running
+         on-device, but we still declare the purpose so macOS doesn't refuse
+         requests through any fallback path. -->
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Mindex transcribes your voice locally with whisper.cpp.</string>
+
+    <!-- File access for spawned helpers (whisper-cli reads audio files
+         from the OS temp dir; Claude CLI reads the vault). -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

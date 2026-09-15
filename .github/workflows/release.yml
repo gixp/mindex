@@ -1,0 +1,270 @@
+name: Release
+
+# Tag-driven releases: push a semver tag (e.g. v0.2.0) and CI builds installers
+# for macOS + Windows + Linux and uploads them (+ the auto-update feed) to the
+# Cloudflare R2 bucket served at https://downloads.mindex.live.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_description:
+        description: 'One-line summary shown under the version on the download page'
+        required: false
+        type: string
+      release_notes:
+        description: "What's-new bullets, one per line"
+        required: false
+        type: string
+      force_update:
+        description: 'Make this version mandatory (raises min_version — older installs are blocked until they update)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # Nothing is built until the checks pass.
+  #
+  # These ran on every push and pull request and on no release at all, which
+  # meant the single build that reaches a user was the single build nothing
+  # looked at. A tag is exactly when it matters most: the code being tagged may
+  # never have been pushed to a branch this workflow's sibling watches, and by
+  # the time an installer is on someone's machine a red test is an incident
+  # rather than a fix.
+  #
+  # `fail-fast` on the matrix below is off on purpose, so one platform failing
+  # still yields the others. That is about builds, not about correctness — a
+  # failing test must stop all three, which is what `needs` does here.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      # Every integration this build compiles in, checked before anything is
+      # built rather than after — the artefact check further down proves a
+      # value survived bundling, but cannot run until three platforms have
+      # spent twenty minutes each producing something to inspect.
+      #
+      # These are publishable keys, not credentials: what protects the data is
+      # the rules on the server, which is why they can be baked into a bundle
+      # whose source is published. A blank one is nevertheless a broken
+      # release, because the app treats a blank value as "this integration
+      # does not exist" and says nothing. See src/main/config for the same
+      # list on the app's side, and Settings → Diagnostics → This build for
+      # where a person sees it.
+      - name: Verify the release is fully configured
+        shell: bash
+        env:
+          MINDEX_POSTHOG_KEY: ${{ secrets.MINDEX_POSTHOG_KEY }}
+          MINDEX_SENTRY_DSN: ${{ secrets.MINDEX_SENTRY_DSN }}
+          MINDEX_GITHUB_CLIENT_ID: ${{ secrets.MINDEX_GITHUB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for name in MINDEX_POSTHOG_KEY MINDEX_SENTRY_DSN MINDEX_GITHUB_CLIENT_ID; do
+            if [ -n "${!name:-}" ]; then
+              echo "ok: $name"
+            else
+              echo "::error::$name is empty — the release would ship with that integration silently absent"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  release:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: release:mac
+          - os: windows-latest
+            script: release:win
+          - os: ubuntu-latest
+            script: release:linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run ${{ matrix.script }}
+        env:
+          # Free, unsigned builds: disable certificate auto-discovery so
+          # electron-builder ad-hoc signs the macOS app (required for it to
+          # launch on Apple Silicon) instead of trying to load a certificate.
+          # Passing empty CSC_LINK/* secrets here breaks the mac build
+          # ("not a file"), so they are intentionally omitted. To enable real
+          # signing + notarization later, set the CSC_*/APPLE_* repo secrets and
+          # map them into this env block.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Baked into the bundle at build time by electron.vite.config.ts.
+          # Publishable keys, not credentials. A blank one makes its
+          # integration a no-op, so a build from a clone still works — which
+          # also means a missing one would fail silently, which is why the
+          # check job refuses to reach this point without them.
+          MINDEX_GITHUB_CLIENT_ID: ${{ secrets.MINDEX_GITHUB_CLIENT_ID }}
+          MINDEX_SENTRY_DSN: ${{ secrets.MINDEX_SENTRY_DSN }}
+          MINDEX_POSTHOG_KEY: ${{ secrets.MINDEX_POSTHOG_KEY }}
+          MINDEX_POSTHOG_HOST: ${{ secrets.MINDEX_POSTHOG_HOST }}
+
+      # Inspect the artefact, not the environment. `electron.vite.config.ts`
+      # inlines these at build time, so the only proof that a key survived into
+      # what users install is the compiled main bundle containing it — and a
+      # build that lost one still succeeds, uploads, and installs cleanly.
+      #
+      # The markers used to name a database and its tables. They are gone: the
+      # client was removed on 2026-09-02 once the release feed and the
+      # analytics event covered what it was for. What is left is one marker per
+      # remaining integration, chosen to be a string that only appears when the
+      # key did.
+      #
+      # The crash-reporting marker is taken from the key rather than written
+      # down. It used to be the literal `ingest.sentry.io`, and that service
+      # issues region-scoped addresses now — `ingest.us.sentry.io` and the like
+      # — so the check failed on a key that was present and correct, and it
+      # blocked the 0.3.6 and 0.3.7 releases entirely while reporting the
+      # opposite. Reading the host out of the key cannot go stale the same way,
+      # whatever shape the address takes next. A blank key still fails, which
+      # is the whole point: an empty string puts no host in the bundle at all.
+      - name: Verify the build kept its keys
+        shell: bash
+        env:
+          MINDEX_SENTRY_DSN: ${{ secrets.MINDEX_SENTRY_DSN }}
+        run: |
+          set -euo pipefail
+          MAIN=out/main/index.js
+          [ -f "$MAIN" ] || MAIN=out/main/index.cjs
+          [ -f "$MAIN" ] || { echo "::error::no compiled main bundle at out/main"; exit 1; }
+          # Host of the crash-reporting address: everything after the
+          # credentials and before the project path.
+          SENTRY_HOST=$(printf '%s' "${MINDEX_SENTRY_DSN:-}" | sed -E 's#^[a-z]+://##; s#^[^@]*@##; s#/.*$##')
+          [ -n "$SENTRY_HOST" ] || { echo "::error::MINDEX_SENTRY_DSN is empty or not an address"; exit 1; }
+          fail=0
+          for marker in i.posthog.com "$SENTRY_HOST" github.com/login/oauth; do
+            if grep -qa "$marker" "$MAIN"; then
+              echo "ok: $marker"
+            else
+              echo "::error::$MAIN has no '$marker' — a required key was blank at build time"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Upload source maps to Sentry
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN not set — skipping source map upload."
+            exit 0
+          fi
+          VERSION=$(node -p "require('./package.json').version")
+          npx --yes @sentry/cli@2 releases new "mindex@$VERSION"
+          npx --yes @sentry/cli@2 sourcemaps inject out
+          npx --yes @sentry/cli@2 sourcemaps upload --release "mindex@$VERSION" out
+          npx --yes @sentry/cli@2 releases finalize "mindex@$VERSION"
+
+      # Release notes live in the repository, next to the code they describe.
+      #
+      # They used to be typed into a form at release time, which meant they
+      # were written from memory, by whoever pressed the button, about work
+      # that might be weeks old — and nowhere afterwards. A file per version
+      # is written while the change is fresh, reviewed with it, and still
+      # there later. Both comparable products do this.
+      #
+      # The format is a first line (one sentence, the summary) and then
+      # bullets. Absent, the manual-run inputs still work.
+      - name: Read the release notes
+        id: notes
+        shell: bash
+        # Through the environment, not interpolated into the script.
+        #
+        # They were spliced in as `toJSON(inputs.…)`, which on a tag push — no
+        # inputs at all — renders the four characters `null`. That is what
+        # 0.3.7 published: a summary reading "null", shown under the version in
+        # the app and on the download page. The same splice also wrapped a real
+        # summary in the quotes `toJSON` adds. An input is also text a person
+        # typed, and text typed by a person has no business being pasted into a
+        # shell.
+        env:
+          INPUT_DESCRIPTION: ${{ inputs.release_description }}
+          INPUT_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          FILE="release-notes/${VERSION}.md"
+          if [ -f "$FILE" ]; then
+            echo "using $FILE"
+            DESC=$(head -n 1 "$FILE")
+            BODY=$(tail -n +2 "$FILE" | sed -e 's/^[[:space:]]*[-*][[:space:]]*//' -e '/^[[:space:]]*$/d')
+          else
+            echo "no $FILE — falling back to the workflow inputs"
+            DESC="${INPUT_DESCRIPTION:-}"
+            BODY="${INPUT_NOTES:-}"
+          fi
+          {
+            echo "description<<__EOF__"
+            echo "$DESC"
+            echo "__EOF__"
+            echo "notes<<__EOF__"
+            echo "$BODY"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish to R2
+        shell: bash
+        run: node scripts/publish-r2.mjs
+        env:
+          # R2 is S3-compatible: the AWS CLI authenticates with these.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # aws-cli v2 adds upload integrity checksums that R2 historically
+          # rejects; only send/validate them when the request actually requires it.
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          # What's-new, written into the manifest the download page and the
+          # app's update card both read. Taken from release-notes/<version>.md
+          # in the repository — versioned with the change it describes, written
+          # while it is fresh, and reviewable — falling back to the manual-run
+          # inputs when there is no file. See the step above.
+          RELEASE_DESCRIPTION: ${{ steps.notes.outputs.description }}
+          RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
+
+      # Hash the exact file the macOS updater will download, on the machine that
+      # just produced it. Hashing it later by re-downloading from R2 would be
+      # hashing whatever the CDN felt like serving — and a hash of the *previous*
+      # release is worse than no hash at all: every client would download the
+      # new build, fail the integrity check, and land on the manual screen.

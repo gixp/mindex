@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+build-icon.tmp
+
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Per-vault internal state (never committed)
+.mindex/
+
+# Archived/retired code kept out of the build and the public repo
+archive/
+
+# tsc output for the electron-vite config (the .ts file is the source)
+electron.vite.config.js
+electron.vite.config.d.ts
