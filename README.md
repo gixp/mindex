@@ -1,5 +1,6 @@
 [![Release](https://img.shields.io/github/v/release/gixp/mindex?display_name=tag&label=release&color=3b82f6)](https://github.com/gixp/mindex/releases/latest)
 [![Release build](https://img.shields.io/github/actions/workflow/status/gixp/mindex/release.yml?label=release%20build)](https://github.com/gixp/mindex/actions/workflows/release.yml)
+[![Docs](https://img.shields.io/badge/docs-mindex.live-398ff9)](https://mindex.live/docs)
 
 # Mindex — an open-source IDE for your knowledge, on your AI subscription
 
@@ -46,6 +47,20 @@ the answer lands: the chat, the note, or a Word, Excel, PDF or Markdown file.
 
 **Interrupts politely.** Send another message mid-answer and it stops and takes
 the new one, rather than queueing behind an answer going the wrong way.
+
+## Documentation
+
+Full documentation is at **[mindex.live/docs](https://mindex.live/docs)** —
+what a vault is, how types and links work, what the assistant can reach, and
+where every file ends up on disk.
+
+| | |
+| --- | --- |
+| [Install](https://mindex.live/docs/start/install) | Get the app running |
+| [Connect an assistant](https://mindex.live/docs/start/connect-an-assistant) | The one thing it needs before it is useful |
+| [Your first vault](https://mindex.live/docs/start/first-vault) | Open a folder and write something |
+| [File layout](https://mindex.live/docs/reference/file-layout) | Everything Mindex writes, and where |
+| [Keyboard shortcuts](https://mindex.live/docs/reference/keyboard-shortcuts) | Every binding, both platforms |
 
 ## What you need
 

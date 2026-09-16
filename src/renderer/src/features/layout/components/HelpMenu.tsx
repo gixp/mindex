@@ -22,6 +22,7 @@ interface HelpMenuItem {
  * poorer of the two.
  */
 const WEBSITE = 'https://mindex.live'
+const DOCS = 'https://mindex.live/docs'
 const REPOSITORY = 'https://github.com/gixp/mindex'
 
 /**
@@ -130,6 +131,7 @@ export function HelpMenu(): JSX.Element {
     {
       label: 'Mindex',
       items: [
+        { icon: 'book', label: 'Documentation', onClick: () => openExternal(DOCS) },
         { icon: 'globe', label: 'mindex.live', onClick: () => openExternal(WEBSITE) },
         { icon: 'github', label: 'GitHub', onClick: () => openExternal(REPOSITORY) }
       ]
