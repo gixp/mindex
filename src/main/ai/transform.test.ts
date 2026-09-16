@@ -182,6 +182,89 @@ describe('transformSelection', () => {
     expect(await transformSelection(input())).toMatchObject({ ok: false })
   })
 
+  // A selection covering several blocks is the case this used to refuse. The
+  // editor hands over its blocks joined by single newlines; the file separates
+  // them with blank lines and prefixes the list items with bullets. Same words,
+  // different gaps.
+  it('finds a passage spanning a heading, a paragraph and a list', async () => {
+    note = {
+      body: [
+        '## The trade-offs',
+        '',
+        "Local-first isn't free:",
+        '',
+        '- **Sync is hard.** Merge logic is fiddly.',
+        '- **Discovery is yours.** No server, no index.',
+        '',
+        'Next section.',
+        ''
+      ].join('\n'),
+      mtime: 222
+    }
+    runStructuredTask.mockResolvedValue({
+      ok: true,
+      data: { rewritten: 'Local-first costs you sync and discovery.', note: 'Condensed.' },
+      readPaths: []
+    })
+
+    const out = await transformSelection({
+      transformId: 'shorten',
+      notePath: '/vault/Notes.md',
+      anchor: {
+        exact: [
+          'The trade-offs',
+          "Local-first isn't free:",
+          'Sync is hard. Merge logic is fiddly.',
+          'Discovery is yours. No server, no index.'
+        ].join('\n'),
+        prefix: '',
+        suffix: '\n\nNext section.',
+        occurrence: 0
+      }
+    })
+
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+
+    // Mapped back to real offsets rather than to the flattened text: the
+    // rewrite lands in the file and the section after it is untouched.
+    const after = out.proposal.edits[0]!.after
+    expect(after).toContain('Local-first costs you sync and discovery.')
+    expect(after).toContain('Next section.')
+    expect(after).not.toContain('Merge logic is fiddly')
+  })
+
+  // The editor shows a wikilink as its title and smart-quotes what the file
+  // spells straight, so the words agree and the characters do not. A person
+  // selecting that sentence is selecting markdown either way.
+  it('finds a passage whose punctuation and links render differently', async () => {
+    note = {
+      body: 'See [[The Planning Problem]] for the survey -- it\'s worth reading.\n',
+      mtime: 333
+    }
+    runStructuredTask.mockResolvedValue({
+      ok: true,
+      data: { rewritten: 'The survey is worth reading.', note: 'Tightened.' },
+      readPaths: []
+    })
+
+    const out = await transformSelection({
+      transformId: 'shorten',
+      notePath: '/vault/Notes.md',
+      anchor: {
+        // What the editor hands over: no brackets, an em dash, a curly quote.
+        exact: 'See The Planning Problem for the survey — it\u2019s worth reading.',
+        prefix: '',
+        suffix: '',
+        occurrence: 0
+      }
+    })
+
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.proposal.edits[0]!.after).toContain('The survey is worth reading.')
+  })
+
   it('passes the assistant’s own failure through', async () => {
     runStructuredTask.mockResolvedValue({
       ok: false,

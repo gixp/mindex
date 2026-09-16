@@ -11,7 +11,7 @@ import { toRelative } from '@main/util/paths'
 import { readNote } from '@main/notes/operations'
 import { runStructuredTask } from './task'
 import { lineAt } from './citations'
-import { projectPlain, toSourceRange } from './plain-text'
+import { collapseSpace, projectPlain, reduceToWords, toSourceRange } from './plain-text'
 import { logEngine } from '@main/agent-engine'
 import { scrubText } from '@main/telemetry/scrub'
 
@@ -79,8 +79,63 @@ function locatePassage(
     end: -1,
     occurrence: anchor.occurrence
   })
-  if (viaPlain.status !== 'anchored') return null
-  return toSourceRange(projection, viaPlain.start, viaPlain.end, body)
+  if (viaPlain.status === 'anchored') {
+    return toSourceRange(projection, viaPlain.start, viaPlain.end, body)
+  }
+
+  // Third attempt: the same words, ignoring how much whitespace separates them.
+  //
+  // A selection covering more than one block — a heading, a paragraph and a
+  // list, say — cannot match either of the first two. The editor joins blocks
+  // with a single newline, the file separates them with a blank line, and the
+  // list contributes breaks of its own; the words agree and the gaps do not.
+  // Both sides are flattened to single spaces, and the hit is mapped back
+  // through two maps to real offsets in the file.
+  const flat = collapseSpace(projection.text)
+  const needle = collapseSpace(anchor.exact).text
+  if (!needle) return null
+
+  const hits: number[] = []
+  for (let at = flat.text.indexOf(needle); at !== -1; at = flat.text.indexOf(needle, at + 1)) {
+    hits.push(at)
+  }
+  const pick = hits[Math.min(anchor.occurrence, hits.length - 1)]
+  if (pick !== undefined) {
+    const firstPlain = flat.map[pick]
+    const lastPlain = flat.map[pick + needle.length - 1]
+    if (firstPlain !== undefined && lastPlain !== undefined) {
+      return toSourceRange(projection, firstPlain, lastPlain + 1, body)
+    }
+  }
+
+  // Last resort: the letters and digits alone.
+  //
+  // Whatever the editor shows is markdown underneath, so there is no passage a
+  // person can select that cannot be sent to an assistant — being refused
+  // because a wikilink renders as its title, or because a quote is curly in one
+  // place and straight in the other, is the tool making its own problem the
+  // person's. Punctuation and case are dropped here and the hit is still mapped
+  // back to real offsets, so the rewrite replaces exactly the characters it
+  // matched.
+  const words = reduceToWords(projection.text)
+  const wordNeedle = reduceToWords(anchor.exact).text
+  if (!wordNeedle) return null
+
+  const wordHits: number[] = []
+  for (
+    let at = words.text.indexOf(wordNeedle);
+    at !== -1;
+    at = words.text.indexOf(wordNeedle, at + 1)
+  ) {
+    wordHits.push(at)
+  }
+  const wordPick = wordHits[Math.min(anchor.occurrence, wordHits.length - 1)]
+  if (wordPick === undefined) return null
+
+  const firstWord = words.map[wordPick]
+  const lastWord = words.map[wordPick + wordNeedle.length - 1]
+  if (firstWord === undefined || lastWord === undefined) return null
+  return toSourceRange(projection, firstWord, lastWord + 1, body)
 }
 
 export async function transformSelection(

@@ -3,14 +3,14 @@ import { looksLikeRepoRef, slugifyRepoName, toCloneUrl } from './github-url'
 
 describe('looksLikeRepoRef', () => {
   it('accepts the URL forms git itself takes', () => {
-    expect(looksLikeRepoRef('https://github.com/gixp/Mindex.git')).toBe(true)
+    expect(looksLikeRepoRef('https://github.com/gixp/mindex.git')).toBe(true)
     expect(looksLikeRepoRef('http://example.com/x.git')).toBe(true)
-    expect(looksLikeRepoRef('git@github.com:gixp/Mindex.git')).toBe(true)
+    expect(looksLikeRepoRef('git@github.com:gixp/mindex.git')).toBe(true)
     expect(looksLikeRepoRef('ssh://git@host/x.git')).toBe(true)
   })
 
   it('accepts owner/repo shorthand', () => {
-    expect(looksLikeRepoRef('gixp/Mindex')).toBe(true)
+    expect(looksLikeRepoRef('gixp/mindex')).toBe(true)
     expect(looksLikeRepoRef('inkeep/open-knowledge')).toBe(true)
     expect(looksLikeRepoRef('a/b.c_d-e')).toBe(true)
   })
@@ -28,17 +28,17 @@ describe('looksLikeRepoRef', () => {
   })
 
   it('ignores surrounding whitespace', () => {
-    expect(looksLikeRepoRef('  gixp/Mindex  ')).toBe(true)
+    expect(looksLikeRepoRef('  gixp/mindex  ')).toBe(true)
   })
 })
 
 describe('toCloneUrl', () => {
   it('expands shorthand', () => {
-    expect(toCloneUrl('gixp/Mindex')).toBe('https://github.com/gixp/Mindex.git')
+    expect(toCloneUrl('gixp/mindex')).toBe('https://github.com/gixp/mindex.git')
   })
 
   it('leaves a URL alone', () => {
-    expect(toCloneUrl('git@github.com:gixp/Mindex.git')).toBe('git@github.com:gixp/Mindex.git')
+    expect(toCloneUrl('git@github.com:gixp/mindex.git')).toBe('git@github.com:gixp/mindex.git')
   })
 
   it('trims', () => {

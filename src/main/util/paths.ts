@@ -156,6 +156,22 @@ export function commentsFile(vaultRoot: string, relPath: string): string {
   return path.join(commentsDir(vaultRoot), `${key}.json`)
 }
 
+/**
+ * Undecided rewrites for one note, keyed the same way comments are.
+ *
+ * Named `rewrites` and not `suggestions`: that directory already belongs to
+ * the context engine's own suggestions, which are a different thing entirely
+ * and vault-wide rather than per note.
+ */
+export function rewritesDir(vaultRoot: string): string {
+  return path.join(vaultMetaDir(vaultRoot), 'rewrites')
+}
+
+export function rewritesFile(vaultRoot: string, relPath: string): string {
+  const key = crypto.createHash('sha1').update(relPath).digest('hex')
+  return path.join(rewritesDir(vaultRoot), `${key}.json`)
+}
+
 export function historyDir(vaultRoot: string): string {
   return path.join(vaultMetaDir(vaultRoot), 'history')
 }

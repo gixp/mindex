@@ -37,6 +37,7 @@ import type {
 } from './types'
 import type { AcpCommand, AcpConfigOption } from './acp'
 import type { CommentThreadView } from './comments'
+import type { PendingSuggestion, SaveRewriteInput } from './ai-suggestions'
 import type { NoteTypeDef } from './note-types'
 import type { SkillFile } from './skill-file'
 import type { TextFile } from './text-file'
@@ -521,7 +522,23 @@ export const OPERATIONS = {
       ]),
       result: returns<CaptureResult>()
     },
-    cancelCapture: { args: z.tuple([]), result: returns<void>() }
+    cancelCapture: { args: z.tuple([]), result: returns<void>() },
+    /** Rewrites offered and not yet answered, kept per note so they survive a
+     *  tab switch, a closed tab and a quit. */
+    listPendingRewrites: {
+      args: z.tuple([z.string()]),
+      result: returns<PendingSuggestion[]>()
+    },
+    savePendingRewrite: {
+      args: z.tuple([
+        z.string(),
+        shaped<SaveRewriteInput>(
+          obj({ anchor: quote, added: z.string(), kind: z.string(), provider: z.string() })
+        )
+      ]),
+      result: returns<PendingSuggestion>()
+    },
+    deletePendingRewrite: { args: z.tuple([z.string(), z.string()]), result: returns<void>() }
   },
   update: {
     getStatus: { args: z.tuple([]), result: returns<UpdateStatus>() },

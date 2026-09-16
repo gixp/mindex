@@ -20,7 +20,7 @@ import { SelectionAssistant } from '@/features/ai/components/SelectionAssistant'
 import { setAiThinking, clearAiThinking } from '@/features/editor/components/extensions/AiThinking'
 import {
   setAiSuggestion,
-  clearAiSuggestion
+  removeAiSuggestion
 } from '@/features/editor/components/extensions/AiSuggestion'
 import { InlineSuggestionBar } from '@/features/ai/components/InlineSuggestionBar'
 import { changedSpan } from '@/features/ai/lib/changedSpan'
@@ -39,6 +39,9 @@ import { loneUrl } from '@/features/editor/lib/lone-url'
 import { pushToast } from '@/platform/notifications'
 import { api } from '@/platform/api'
 import type { FileEdit } from '@shared/ai'
+import { findQuoteRanges } from '@/features/editor/lib/doc-text'
+
+type ApplyState = 'ready' | 'applying' | 'applied'
 import { setLinkRequestHandler } from '@/features/editor/lib/active-note-editor'
 import { BlockTypeSelector } from './BlockTypeSelector'
 import {
@@ -101,16 +104,17 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
   const [wikilink, setWikilink] = useState<WikilinkState | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [linkPopover, setLinkPopover] = useState<LinkPopoverState | null>(null)
-  // The suggestion currently on offer in this editor, and where its bar sits.
-  // Held here rather than in the proposal store because both facts are about
-  // this view of this note — a second view of the same note has its own
-  // positions and must not inherit these.
-  const [offer, setOffer] = useState<{ kind: string; edit: FileEdit } | null>(null)
-  // Where the controls are drawn: a slot inside the suggestion itself, found
-  // once it has been laid out. Held as state so the portal re-runs when the
-  // suggestion is replaced rather than pointing at a node that is gone.
-  const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null)
-  const [applyState, setApplyState] = useState<'ready' | 'applying' | 'applied'>('ready')
+  /**
+   * The offers standing on this note, keyed by the id they carry on disk.
+   *
+   * A note can hold several — one per passage — and each keeps its own slot
+   * and its own apply state, so accepting one says nothing about the others.
+   * Positions are not in here: those live in the editor's plugin state, which
+   * maps them through every edit. This is only what the bar needs to draw.
+   */
+  const [offers, setOffers] = useState<
+    { id: string; kind: string; edit: FileEdit; slot: HTMLElement; state: ApplyState }[]
+  >([])
   const [findFocusToken, setFindFocusToken] = useState(0)
   const editor = useEditor(
     {
@@ -298,6 +302,64 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
   // "editor.commands.unlockDragHandle is not a function" and took the editor
   // down with it. The command is only sugar over this meta, which the plugin
   // itself reads, so setting it directly is both correct and dependency-free.
+  /**
+   * Put back the offers this note already has.
+   *
+   * Runs whenever a note is opened in this view, which covers every way one
+   * can come back into sight: switching tabs, reopening a closed one, and
+   * starting the app. The passage is found by its words rather than by a
+   * stored position, because the file may have been edited by anything —
+   * another view, an assistant, an editor outside the app — since the offer
+   * was made. An offer whose passage is gone stays on disk rather than being
+   * deleted: the person never answered it, and the words may come back.
+   */
+  useEffect(() => {
+    if (!editor || !commentPath) return
+    let alive = true
+
+    void api()
+      .ai.listPendingRewrites(commentPath)
+      .then((r) => {
+        if (!alive || !r.ok || !r.data?.length) return
+        const restored: typeof offers = []
+        for (const item of r.data) {
+          const ranges = findQuoteRanges(editor.state.doc, item.anchor.exact)
+          const range = ranges[Math.min(item.anchor.occurrence, ranges.length - 1)]
+          if (!range) continue
+          const slot = setAiSuggestion(editor.view, {
+            id: item.id,
+            from: range.from,
+            to: range.to,
+            added: item.added,
+            provider: item.provider
+          })
+          if (!slot) continue
+          // The edit is rebuilt from what the note says now, not from what it
+          // said when the offer was made — applying it later must splice into
+          // the current file or the write is refused as a conflict.
+          restored.push({
+            id: item.id,
+            kind: item.kind,
+            edit: {
+              path: commentPath,
+              before: body,
+              after: body.replace(item.anchor.exact, item.added)
+            } as FileEdit,
+            slot,
+            state: 'ready'
+          })
+        }
+        if (restored.length > 0) setOffers(restored)
+      })
+
+    return () => {
+      alive = false
+    }
+    // Keyed to the note, not to its text: re-running on every keystroke would
+    // redraw the offers under the person's cursor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, commentPath])
+
   useEffect(() => {
     if (!editor) return
     // Either picker counts: both take the pointer out of the block to reach a
@@ -351,14 +413,41 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
     const span = changedSpan(edit.before, edit.after)
     if (!span.added) return
 
-    // The slot comes back from the call that made the suggestion. It used to be
-    // hunted for in the page a frame later, which found the element that was
-    // there *then* — and the editor replaces it on the next redraw, so the
-    // controls ended up rendered into a node no longer on screen.
-    const slot = setAiSuggestion(editor.view, { ...range, added: span.added })
-    setApplyState('ready')
-    setOffer({ kind: proposal.kind, edit })
-    setActionSlot(slot)
+    // Written down before it is drawn. The offer has to outlive this editor —
+    // a tab switch or a closed tab used to be the end of it — so the record on
+    // disk is what exists, and what is drawn here is a view of it.
+    const exact = editor.state.doc.textBetween(range.from, range.to, '\n', '\n')
+    void api()
+      .ai.savePendingRewrite(commentPath, {
+        anchor: {
+          exact,
+          prefix: editor.state.doc.textBetween(Math.max(0, range.from - 32), range.from, '\n', '\n'),
+          suffix: editor.state.doc.textBetween(
+            range.to,
+            Math.min(editor.state.doc.content.size, range.to + 32),
+            '\n',
+            '\n'
+          ),
+          occurrence: 0
+        },
+        added: span.added,
+        kind: proposal.kind,
+        provider: range.provider
+      })
+      .then((r) => {
+        if (!r.ok || !r.data) return
+        // The slot comes back from the call that made the suggestion. It used
+        // to be hunted for in the page a frame later, which found the element
+        // that was there *then* — and the editor replaces it on the next
+        // redraw, so the controls ended up rendered into a node no longer on
+        // screen.
+        const slot = setAiSuggestion(editor.view, { ...range, id: r.data.id, added: span.added })
+        if (!slot) return
+        setOffers((prev) => [
+          ...prev.filter((o) => o.id !== r.data!.id),
+          { id: r.data!.id, kind: proposal.kind, edit, slot, state: 'ready' }
+        ])
+      })
 
     // Taken off the stack: the card would otherwise say the same thing a
     // second time, in the corner, which is the place this replaces.
@@ -658,42 +747,54 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
         </BubbleMenu>
       ) : null}
 
-      {offer && editor && actionSlot
-        ? createPortal(
-            <InlineSuggestionBar
-              state={applyState}
-              onAccept={() => {
-                setApplyState('applying')
-                void api()
-                  .ai.applyEdit({ kind: offer.kind, edit: offer.edit })
-                  .then((r) => {
-                    if (r.ok && r.data?.ok) {
-                      // Said once, in its own colour, and then it goes. The
-                      // write has landed and the editor is about to reload from
-                      // disk, so the decoration has nothing left to describe.
-                      setApplyState('applied')
-                      setTimeout(() => {
-                        clearAiSuggestion(editor.view)
-                        setOffer(null)
-                        setActionSlot(null)
-                      }, 900)
-                      return
-                    }
-                    setApplyState('ready')
-                    pushToast(
-                      r.ok && r.data && !r.data.ok && r.data.reason === 'conflict'
-                        ? 'The note changed since this was suggested — try the rewrite again.'
-                        : 'The change could not be applied.'
-                    )
-                  })
-              }}
-              onDismiss={() => {
-                clearAiSuggestion(editor.view)
-                setOffer(null)
-                setActionSlot(null)
-              }}
-            />,
-            actionSlot
+      {editor
+        ? offers.map((offer) =>
+            createPortal(
+              <InlineSuggestionBar
+                key={offer.id}
+                state={offer.state}
+                onAccept={() => {
+                  setOffers((prev) =>
+                    prev.map((o) => (o.id === offer.id ? { ...o, state: 'applying' } : o))
+                  )
+                  void api()
+                    .ai.applyEdit({ kind: offer.kind, edit: offer.edit })
+                    .then((r) => {
+                      if (r.ok && r.data?.ok) {
+                        // Said once, in its own colour, and then it goes. The
+                        // write has landed and the editor is about to reload
+                        // from disk, so the decoration has nothing left to
+                        // describe.
+                        setOffers((prev) =>
+                          prev.map((o) => (o.id === offer.id ? { ...o, state: 'applied' } : o))
+                        )
+                        if (commentPath) void api().ai.deletePendingRewrite(commentPath, offer.id)
+                        setTimeout(() => {
+                          removeAiSuggestion(editor.view, offer.id)
+                          setOffers((prev) => prev.filter((o) => o.id !== offer.id))
+                        }, 900)
+                        return
+                      }
+                      setOffers((prev) =>
+                        prev.map((o) => (o.id === offer.id ? { ...o, state: 'ready' } : o))
+                      )
+                      pushToast(
+                        r.ok && r.data && !r.data.ok && r.data.reason === 'conflict'
+                          ? 'The note changed since this was suggested — try the rewrite again.'
+                          : 'The change could not be applied.'
+                      )
+                    })
+                }}
+                onDismiss={() => {
+                  // Declined is answered: it goes from the note and from disk.
+                  if (commentPath) void api().ai.deletePendingRewrite(commentPath, offer.id)
+                  removeAiSuggestion(editor.view, offer.id)
+                  setOffers((prev) => prev.filter((o) => o.id !== offer.id))
+                }}
+              />,
+              offer.slot,
+              offer.id
+            )
           )
         : null}
 

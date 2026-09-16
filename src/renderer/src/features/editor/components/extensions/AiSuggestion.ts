@@ -21,6 +21,9 @@ import { sanitizeNoteHtml } from '@/platform/markdown/sanitize-embedded-html'
  */
 
 export interface SuggestionState {
+  /** The stored offer this draws. Shared with the record on disk, so the
+   *  editor and the store always name the same offer. */
+  id: string
   from: number
   to: number
   /** The wording being offered. */
@@ -40,46 +43,77 @@ export interface SuggestionState {
   dom: HTMLElement
 }
 
-const key = new PluginKey<SuggestionState | null>('mindex:aiSuggestion')
+type Meta =
+  | { type: 'add'; item: SuggestionState }
+  | { type: 'remove'; id: string }
+  | { type: 'clear' }
+
+const key = new PluginKey<SuggestionState[]>('mindex:aiSuggestion')
 
 export const AiSuggestion = Extension.create({
   name: 'aiSuggestion',
 
   addProseMirrorPlugins() {
     return [
-      new Plugin<SuggestionState | null>({
+      new Plugin<SuggestionState[]>({
         key,
         state: {
-          init: () => null,
+          init: () => [],
           apply: (tr, value) => {
-            const meta = tr.getMeta(key) as SuggestionState | null | undefined
-            if (meta !== undefined) return meta
-            if (!value) return value
-            // Any real edit to the document withdraws the suggestion. It
-            // describes a passage as it was; once the person has changed the
-            // note themselves, it is an answer to a question they have moved
-            // on from, and accepting it would overwrite what they just wrote.
-            if (tr.docChanged) return null
-            return value
+            const meta = tr.getMeta(key) as Meta | undefined
+            let next = value
+            if (meta?.type === 'add') {
+              next = [...value.filter((s) => s.id !== meta.item.id), meta.item]
+            } else if (meta?.type === 'remove') {
+              next = value.filter((s) => s.id !== meta.id)
+            } else if (meta?.type === 'clear') {
+              next = []
+            }
+
+            if (!tr.docChanged) return next
+
+            // An edit used to withdraw every offer on the note. That was right
+            // when there could only be one — but accepting one offer is itself
+            // an edit, and it would have taken the others down with it. The
+            // positions are mapped through the change instead, and an offer is
+            // dropped only when its own passage is the thing that was edited:
+            // it describes wording that no longer exists, and accepting it
+            // would overwrite what the person just wrote.
+            return next.flatMap((s) => {
+              const from = tr.mapping.mapResult(s.from)
+              const to = tr.mapping.mapResult(s.to)
+              if (from.deleted || to.deleted || to.pos <= from.pos) return []
+              return [{ ...s, from: from.pos, to: to.pos }]
+            })
           }
         },
         props: {
           decorations(state) {
-            const value = key.getState(state)
-            if (!value || value.to <= value.from) return DecorationSet.empty
+            const value = key.getState(state) ?? []
+            if (value.length === 0) return DecorationSet.empty
+            const decos: Decoration[] = []
+            for (const item of value) {
+              if (item.to <= item.from) continue
+              try {
+                decos.push(
+                  Decoration.inline(item.from, item.to, {
+                    class: 'ai-old',
+                    'data-provider': item.provider
+                  }),
+                  Decoration.widget(item.to, item.dom, {
+                    side: 1,
+                    // Marked so a click on the offered wording does not move
+                    // the caret into a thing that is not text.
+                    ignoreSelection: true
+                  })
+                )
+              } catch {
+                // One offer that cannot be placed must not take the rest down.
+              }
+            }
+            if (decos.length === 0) return DecorationSet.empty
             try {
-              return DecorationSet.create(state.doc, [
-                Decoration.inline(value.from, value.to, {
-                  class: 'ai-old',
-                  'data-provider': value.provider
-                }),
-                Decoration.widget(value.to, value.dom, {
-                  side: 1,
-                  // Marked so a click on the offered wording does not move the
-                  // caret into a thing that is not text.
-                  ignoreSelection: true
-                })
-              ])
+              return DecorationSet.create(state.doc, decos)
             } catch {
               return DecorationSet.empty
             }
@@ -151,14 +185,19 @@ export function setAiSuggestion(
   value: Omit<SuggestionState, 'dom'>
 ): HTMLElement | null {
   const dom = renderAdded(value)
-  view.dispatch(view.state.tr.setMeta(key, { ...value, dom }))
+  view.dispatch(view.state.tr.setMeta(key, { type: 'add', item: { ...value, dom } } satisfies Meta))
   return dom.querySelector<HTMLElement>('[data-ai-actions]')
 }
 
-export function clearAiSuggestion(view: EditorView): void {
-  view.dispatch(view.state.tr.setMeta(key, null))
+/** Take one offer off the note, leaving any others in place. */
+export function removeAiSuggestion(view: EditorView, id: string): void {
+  view.dispatch(view.state.tr.setMeta(key, { type: 'remove', id } satisfies Meta))
 }
 
-export function getAiSuggestion(view: EditorView): SuggestionState | null {
-  return key.getState(view.state) ?? null
+export function clearAiSuggestion(view: EditorView): void {
+  view.dispatch(view.state.tr.setMeta(key, { type: 'clear' } satisfies Meta))
+}
+
+export function getAiSuggestions(view: EditorView): SuggestionState[] {
+  return key.getState(view.state) ?? []
 }

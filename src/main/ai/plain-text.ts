@@ -154,3 +154,68 @@ export function toSourceRange(
 
   return { start, end }
 }
+
+/**
+ * The same text with every run of whitespace reduced to one space, and a map
+ * back to where each surviving character came from.
+ *
+ * This exists because a selection spanning more than one block arrives with a
+ * different amount of whitespace in it than the file has. The editor joins
+ * blocks with a single newline; markdown separates them with a blank line, and
+ * a list adds its own line breaks on top. The words are identical and the gaps
+ * between them are not, so an exact search fails on a passage the person can
+ * plainly see in front of them.
+ *
+ * Collapsing both sides makes the comparison about the words. The map is what
+ * turns a hit back into a real range, so the rewrite still replaces the exact
+ * characters in the file — including the syntax the projection removed.
+ */
+export function collapseSpace(text: string): { text: string; map: number[] } {
+  const out: string[] = []
+  const map: number[] = []
+  let pendingGap = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] as string
+    if (/\s/.test(ch)) {
+      pendingGap = out.length > 0
+      continue
+    }
+    if (pendingGap) {
+      out.push(' ')
+      map.push(i)
+      pendingGap = false
+    }
+    out.push(ch)
+    map.push(i)
+  }
+
+  return { text: out.join(''), map }
+}
+
+/**
+ * The same text reduced to its letters and digits, lowercased, with a map back.
+ *
+ * The last resort when locating a passage. Collapsing whitespace handles the
+ * common mismatch, but not every one: the editor renders a wikilink, a tag, a
+ * checkbox or a table as something other than the characters in the file, and
+ * a rewrite offered on such a passage was refused outright. Punctuation and
+ * case are dropped as well, so a curly quote against a straight one, or an em
+ * dash against a double hyphen, no longer decides whether a person is allowed
+ * to edit their own sentence.
+ *
+ * Deliberately last: it can match text that differs in punctuation, so it runs
+ * only once the stricter comparisons have failed.
+ */
+export function reduceToWords(text: string): { text: string; map: number[] } {
+  const out: string[] = []
+  const map: number[] = []
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] as string
+    if (/[\p{L}\p{N}]/u.test(ch)) {
+      out.push(ch.toLowerCase())
+      map.push(i)
+    }
+  }
+  return { text: out.join(''), map }
+}

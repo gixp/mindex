@@ -17,7 +17,7 @@ everything else. Mindex is written inside itself.
 
 <br />
 
-<img src="assets/screenshot.jpg" width="1000" alt="Mindex" />
+<img src="assets/screenshot.webp" width="1000" alt="Mindex" />
 
 <br />
 

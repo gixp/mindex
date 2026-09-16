@@ -108,7 +108,26 @@ async function resolveCitationRefs(
   return resolveCitations(raw, bodies)
 }
 
+import {
+  deletePendingRewrite,
+  listPendingRewrites,
+  savePendingRewrite
+} from '@main/ai/pending-rewrites'
+import type { SaveRewriteInput } from '@shared/ai-suggestions'
+
 export function registerAiHandlers(): void {
+  handle(IPC.ai.listPendingRewrites, (_e, absPath: string) =>
+    safe(async () => await listPendingRewrites(absPath))
+  )
+
+  handle(IPC.ai.savePendingRewrite, (_e, absPath: string, input: SaveRewriteInput) =>
+    safe(async () => await savePendingRewrite(absPath, input))
+  )
+
+  handle(IPC.ai.deletePendingRewrite, (_e, absPath: string, id: string) =>
+    safe(async () => await deletePendingRewrite(absPath, id))
+  )
+
   handle(IPC.ai.applyEdit, (_e, input: ApplyEditInput) => safe(async () => applyEdit(input)))
 
   handle(IPC.ai.resolveCitations, (_e, raw: Array<{ path: string; quote: string }>) =>

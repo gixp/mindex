@@ -1552,8 +1552,14 @@ body:has(#overlay-root) {
      both fragments and the sweep tears in the middle. */
   .ProseMirror .ai-thinking {
     --ai-glow: var(--brand-claude);
-    border-radius: 3px;
-    padding: 0 1px;
+    /* No radius, no padding, no ring.
+     *
+     * ProseMirror splits an inline decoration at every mark boundary, so a
+     * passage containing one italic word is three spans, not one. Anything
+     * that draws an edge — a corner, a border, side padding — draws it three
+     * times, and the italic word appeared boxed off on its own. A flat band
+     * has no edges to repeat, so the fragments read as the single highlight
+     * they are meant to be. */
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
     background-image:
@@ -1570,9 +1576,9 @@ body:has(#overlay-root) {
       220% 100%,
       100% 100%;
     background-repeat: no-repeat;
-    box-shadow:
-      0 0 0 1px hsl(var(--ai-glow) / 0.22),
-      0 0 14px -3px hsl(var(--ai-glow) / 0.55);
+    /* The outer glow survives — it is blurred, so it does not seam where two
+       fragments meet. The 1px ring did, and was the thing drawing the boxes. */
+    box-shadow: 0 0 14px -3px hsl(var(--ai-glow) / 0.55);
     animation: ai-sweep 1.5s linear infinite;
   }
 
@@ -1609,13 +1615,24 @@ body:has(#overlay-root) {
      an underline never did once the rewrite ran past one line. */
   .ProseMirror .ai-new {
     --ai-glow: var(--brand-claude);
-    border-radius: var(--r-3);
-    padding: 1px 5px;
+    /* One box, and it is never split across lines.
+     *
+     * This was an inline span with `box-decoration-break: clone`, which draws
+     * the whole ring again on every line fragment. A rewrite longer than one
+     * line therefore produced a ring per line — including a tiny empty one
+     * wherever the offer happened to begin at the end of a line, and another
+     * one drawn around the buttons. Inline-block keeps it in the sentence
+     * while making it a single rectangle that wraps its own contents. */
+    display: inline-block;
+    /* The same corner a fenced code block gets (`.ProseMirror pre`, 10px).
+       Both are a block of machine-produced text set into the prose, so they
+       should be cut the same way; the radius scale has no 10px step, which is
+       why this is written out rather than taken from a token. */
+    border-radius: 10px;
+    padding: 8px;
     margin-left: 3px;
     background: hsl(var(--ai-glow) / 0.12);
     box-shadow: inset 0 0 0 1px hsl(var(--ai-glow) / 0.45);
-    box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
     animation: ai-arrive 0.28s ease-out;
   }
 
@@ -1645,6 +1662,14 @@ body:has(#overlay-root) {
      editor must not treat them as text: no caret in them, and the words in
      the buttons are not part of the note. */
   .ProseMirror .ai-actions {
+    /* Their own row at the foot of the offer, aligned right. They used to run
+       on from the last word, so they were squeezed against the ring and the
+       two of them read as one damaged control. */
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
     user-select: none;
     white-space: nowrap;
   }

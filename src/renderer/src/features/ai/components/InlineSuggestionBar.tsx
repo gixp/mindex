@@ -2,7 +2,7 @@ import { Icon } from '@/ui/icon'
 import { cn } from '@/ui/cn'
 
 /**
- * Accept or cancel, at the end of the wording being offered.
+ * Accept or decline, at the foot of the wording being offered.
  *
  * No container, and no icon standing in for a word. Two matched pills inside a
  * bordered box read as a segmented switcher whatever the spacing; a bare cross
@@ -28,7 +28,7 @@ export function InlineSuggestionBar({
 }): JSX.Element {
   if (state === 'applied') {
     return (
-      <span className="ml-2 inline-flex items-center gap-1 align-middle text-11 font-medium text-ai-done">
+      <span className="inline-flex items-center gap-1 text-11 font-medium text-ai-done">
         <Icon name="check" size={11} className="codicon-inherit" />
         Applied
       </span>
@@ -37,14 +37,14 @@ export function InlineSuggestionBar({
 
   const busy = state === 'applying'
   return (
-    <span className="ml-2 inline-flex items-center gap-2 align-middle">
+    <span className="inline-flex items-center gap-2.5">
       <button
         type="button"
         onClick={onDismiss}
         disabled={busy}
-        className="text-11 text-c-2 transition-colors hover:text-c-1 disabled:opacity-30"
+        className="inline-flex h-[22px] items-center px-1 text-11 text-c-2 transition-colors hover:text-c-1 disabled:opacity-30"
       >
-        Cancel
+        Decline
       </button>
       <button
         type="button"
