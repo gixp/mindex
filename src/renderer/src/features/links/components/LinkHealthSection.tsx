@@ -11,7 +11,7 @@ export type LinkHealthTab = 'dead' | 'orphans'
 
 /** Same shape as every button in Context Management: fills with its own edge. */
 const ROW_ACTION =
-  'inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-8 border border-bd-1 px-2 text-11 font-medium text-c-2 transition-colors hover:bg-bg-3 hover:text-c-1 disabled:cursor-not-allowed disabled:opacity-30'
+  'inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-8 border border-bd-1 px-2 text-11 font-medium text-c-2 transition-colors hover:bg-bg-4 hover:text-c-1 disabled:cursor-not-allowed disabled:opacity-30'
 
 /**
  * The two faults in a vault's web of links, and what to do about each.
@@ -86,7 +86,7 @@ export function LinkHealthSection({
         ) : (
           <div className="flex flex-col gap-1.5">
             {dead.map((d) => (
-              <div key={d.target} className="rounded-12 bg-bg-2 p-2.5">
+              <div key={d.target} className="rounded-12 bg-bg-3 p-2.5">
                 <div className="flex items-center gap-2">
                   <Icon name="link" size={13} className="shrink-0 codicon-amber" />
                   <span className="min-w-0 flex-1 truncate font-mono text-12.5 text-c-1">
@@ -122,7 +122,7 @@ export function LinkHealthSection({
                       type="button"
                       onClick={() => openRel(s)}
                       title={`Open ${s}`}
-                      className="max-w-full truncate rounded-6 px-1.5 py-0.5 font-mono text-11 text-c-2 transition-colors hover:bg-bg-3 hover:text-c-1"
+                      className="max-w-full truncate rounded-6 px-1.5 py-0.5 font-mono text-11 text-c-2 transition-colors hover:bg-bg-4 hover:text-c-1"
                     >
                       {s}
                     </button>
@@ -151,7 +151,7 @@ export function LinkHealthSection({
           {orphans.map((o) => (
             <div
               key={o.path}
-              className="group flex items-center gap-2 rounded-8 px-2 py-1.5 transition-colors hover:bg-bg-2"
+              className="group flex items-center gap-2 rounded-8 px-2 py-1.5 transition-colors hover:bg-bg-3"
             >
               <Icon name="file" size={13} className="shrink-0 codicon-muted" />
               <span className="truncate text-12.5 text-c-1">{o.title}</span>

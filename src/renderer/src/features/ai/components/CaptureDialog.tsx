@@ -486,7 +486,7 @@ function CaptureModel(): JSX.Element {
       // sits inside the box it belongs to and the box is its edge; here it
       // stands on its own in a row of buttons, and the same metrics as the
       // other fields in this window are what put it on their line.
-      triggerClassName="h-8 gap-1.5 rounded-r3 border border-bd-2 bg-bg-1 px-2.5 text-12.5 text-c-1 hover:bg-bg-2"
+      triggerClassName="h-8 gap-1.5 rounded-r3 border border-bd-2 bg-bg-1 px-2.5 text-12.5 text-c-1 hover:bg-bg-3"
       onChoose={(c) => patch({ captureProvider: c.provider, captureModel: c.model })}
       footer={
         <div className="px-1.5 py-1.5">
@@ -527,7 +527,7 @@ const FIELD =
 
 /** The same metrics on the type picker's trigger, so the two fields line up. */
 const FIELD_TRIGGER =
-  'h-8 w-full rounded-r3 border border-bd-2 bg-bg-1 px-2.5 text-12.5 text-c-1 hover:bg-bg-1'
+  'h-8 w-full rounded-r3 border border-bd-2 bg-bg-1 px-2.5 text-12.5 text-c-1 hover:bg-bg-3'
 
 /**
  * A tag, a link, or the address it came from.

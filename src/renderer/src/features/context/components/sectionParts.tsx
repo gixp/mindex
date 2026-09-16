@@ -315,7 +315,7 @@ export function SmallButton({
   const shell = {
     primary: 'border-accent2/30 bg-accent2/[0.09] text-accent2 hover:bg-accent2/15',
     accent: 'border-amber-500/30 bg-amber-500/[0.08] text-amber-200 hover:bg-amber-500/15',
-    default: 'border-border text-foreground hover:bg-bg-3'
+    default: 'border-border text-foreground hover:bg-bg-4'
   }[tone]
   const tint = { primary: 'codicon-orange', accent: 'codicon-amber', default: '' }[tone]
   return (
