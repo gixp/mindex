@@ -41,6 +41,10 @@ everything else. Mindex is written inside itself.
 **Writes with you.** A rich editor and the raw file, side by side or one at a
 time. Wiki links, backlinks, a graph, typed notes, comments.
 
+**Rewrites in place.** Select a paragraph and ask for it shorter, plainer, as a
+list, as a table. The answer arrives in the note itself — your wording struck
+through, the offer under it — and nothing is written until you accept it.
+
 **Answers in your vault.** A chat that can search, read and write your notes.
 Set how far a question reaches — this note, this folder, everything — and where
 the answer lands: the chat, the note, or a Word, Excel, PDF or Markdown file.
@@ -61,6 +65,7 @@ where every file ends up on disk.
 | [Your first vault](https://mindex.live/docs/start/first-vault) | Open a folder and write something |
 | [File layout](https://mindex.live/docs/reference/file-layout) | Everything Mindex writes, and where |
 | [Keyboard shortcuts](https://mindex.live/docs/reference/keyboard-shortcuts) | Every binding, both platforms |
+| [Version history](https://mindex.live/docs/concepts/history) | Every write kept locally, and how to go back |
 
 ## What you need
 
