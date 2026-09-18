@@ -259,18 +259,20 @@ export function FrontmatterPanel({
             ) : null}
           </button>
 
-          {/* The way out of editing, and the only thing in the heading that is
-              a fill: leaving the mode is the one action the panel offers while
-              it is in it. Nothing takes its place while reading — a permanent
-              Edit button beside a list whose every row already has a pencil is
-              the same offer made twice. */}
-          {editing ? (
-            <div className="ml-auto">
+          {/* One place, at the end of the heading line, for the state the panel
+              is in and the way out of it: the pencil turns every row into a
+              field, Done puts them all back. The pencil sits here rather than
+              on each row because it is about the panel, not about a property —
+              a single value is edited by clicking the value itself. */}
+          <div className="ml-auto flex items-center">
+            {editing ? (
               <ActionButton tone="primary" size="sm" onClick={stopEditing}>
                 Done
               </ActionButton>
-            </div>
-          ) : null}
+            ) : canEdit ? (
+              <RowButton icon="edit" title="Edit properties" onClick={() => setEditing(true)} />
+            ) : null}
+          </div>
         </div>
       )}
 

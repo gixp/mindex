@@ -136,7 +136,7 @@
   },
   "src/renderer/src/features/history/components/FileHistoryModal.tsx": {
     "no-restricted-syntax": {
-      "count": 16
+      "count": 14
     }
   },
   "src/renderer/src/features/icon-picker/components/IconPicker.tsx": {

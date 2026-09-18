@@ -400,7 +400,7 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
    *
    * Read from the store rather than passed in: the request resolves without a
    * value, and the newest proposal for this note is the one it just produced.
-   * A proposal that failed has no wording to show, so it is left to the card,
+   * A proposal that failed has no answer to show, so it is left to the card,
    * which is the only place a reason and a retry can live.
    */
   function showOffer(range: { from: number; to: number; provider: string }): void {
@@ -412,7 +412,11 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
     if (!proposal || !edit) return
 
     const span = changedSpan(edit.before, edit.after)
-    if (!span.added) return
+    // A rewrite that only takes words out is still an answer — Shorten
+    // produces them routinely — and it used to fall through to the card in the
+    // corner, which is the thing the offer in the note replaces. What is left
+    // to the card is a proposal that changed nothing at all.
+    if (!span.added && !span.removed) return
 
     // Written down before it is drawn. The offer has to outlive this editor —
     // a tab switch or a closed tab used to be the end of it — so the record on

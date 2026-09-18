@@ -105,14 +105,22 @@ export const AiSuggestion = Extension.create({
                   Decoration.inline(item.from, item.to, {
                     class: 'ai-old',
                     'data-provider': item.provider
-                  }),
-                  Decoration.widget(item.to, item.dom, {
-                    side: 1,
-                    // Marked so a click on the offered wording does not move
-                    // the caret into a thing that is not text.
-                    ignoreSelection: true
                   })
                 )
+                // Nothing offered in place of the passage — a rewrite that
+                // only takes words out. The struck passage and the row under
+                // it say the whole thing; an empty widget beside them would be
+                // a lozenge of padding standing for no wording at all.
+                if (item.added.trim() !== '') {
+                  decos.push(
+                    Decoration.widget(item.to, item.dom, {
+                      side: 1,
+                      // Marked so a click on the offered wording does not move
+                      // the caret into a thing that is not text.
+                      ignoreSelection: true
+                    })
+                  )
+                }
                 // The controls go under the block the passage sits in, not
                 // after the words themselves. A rewrite of two words is read
                 // in the sentence around it, and a pair of buttons wedged
