@@ -107,12 +107,15 @@ export function FrontmatterPanel({
   readOnly?: boolean
 }): JSX.Element {
   const [open, setOpen] = useState(false)
-  // Which state the open panel is in. Never true when `readOnly` — a skill
-  // file's properties are shown, not edited.
+  // Every row at once, entered from the closed bar's pencil and left by Done.
+  // Never true when `readOnly` — a skill file's properties are shown, not
+  // edited.
   const [editing, setEditing] = useState(false)
-  // The property whose pencil was clicked, so its field can take focus when
-  // the fields appear. Only read as the fields mount; cleared on the way out.
-  const [focusKey, setFocusKey] = useState<string | null>(null)
+  // One row, entered by clicking the value itself and left as soon as focus
+  // leaves it. Changing one property is what nearly every visit here is, and
+  // turning the whole panel into a form to do it made eleven fields out of a
+  // request about one.
+  const [activeKey, setActiveKey] = useState<string | null>(null)
   const issues = useFrontmatterIssues(relPath, frontmatter)
   // `null` means no draft row is showing. Kept separate from `frontmatter`
   // itself so a half-typed, not-yet-committed name/value is never mistaken
@@ -124,21 +127,28 @@ export function FrontmatterPanel({
   const id = frontmatter['id'] ? String(frontmatter['id']) : null
   const count = 1 + (id ? 1 : 0) + entries.length
   const canEdit = !readOnly
-  // One template for every row in the list, decided by the mode rather than by
-  // whether a given row happens to have a pencil: a row that drops the trailing
-  // column redistributes the two `fr` columns, which is what made `id` — the
-  // one row with nothing to edit — start its value further right than the rows
-  // above and below it.
-  const withPencil = canEdit && !editing
+  // The trailing column is held open for every row in the list whenever the
+  // panel can be edited at all — not only for the rows that currently have
+  // something in it. A row that drops it redistributes the two `fr` columns,
+  // which is what made `id` start its value further right than its neighbours.
+  const trailing = canEdit
 
-  function startEditing(key: string): void {
-    setFocusKey(key)
-    setEditing(true)
+  /** Is this row a field right now — because the whole panel is, or because
+   *  this is the one value that was clicked? */
+  function isEditing(key: string): boolean {
+    return editing || activeKey === key
   }
 
   function stopEditing(): void {
-    setFocusKey(null)
+    setActiveKey(null)
     setEditing(false)
+  }
+
+  function removeKey(key: string): void {
+    const next = { ...frontmatter }
+    delete next[key]
+    setActiveKey(null)
+    onChange(next)
   }
 
   function commitNewRow(): void {
@@ -183,7 +193,7 @@ export function FrontmatterPanel({
             onClick={() => setOpen(true)}
             className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
           >
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-foreground">
+            <span className="ml-1.5 inline-flex shrink-0 items-center gap-1.5 text-foreground">
               <Icon name="chevron-right" size={13} className="codicon-c-1" />
               Properties
               <span className="text-muted-foreground/50">({count})</span>
@@ -214,9 +224,11 @@ export function FrontmatterPanel({
               Closed, the bar *is* the list, so the one control it offers should
               be the one the list offers, not a second vocabulary for it. */}
           {canEdit ? (
-            <EditPencil
-              label="properties"
-              onClick={() => {
+            <RowButton
+              icon="edit"
+              title="Edit properties"
+              onClick={(e) => {
+                e.stopPropagation()
                 setOpen(true)
                 setEditing(true)
               }}
@@ -224,7 +236,7 @@ export function FrontmatterPanel({
           ) : null}
         </div>
       ) : (
-        <div className="flex items-center gap-2 px-1">
+        <div className="flex items-center gap-2 py-1 pl-2.5 pr-1">
           <button
             type="button"
             onClick={() => {
@@ -272,13 +284,17 @@ export function FrontmatterPanel({
           <FmRow
             label="type"
             icon="book"
-            trailing={withPencil}
-            onEdit={withPencil ? () => startEditing('type') : undefined}
+            trailing={trailing}
+            // The type cannot be deleted — a note without one is not a kind of
+            // note, it is a note with a hole in it — so the trailing cell is
+            // held open and left empty.
+            onActivate={canEdit && !isEditing('type') ? () => setActiveKey('type') : undefined}
+            onLeave={activeKey === 'type' ? () => setActiveKey(null) : undefined}
           >
-            {editing ? (
+            {isEditing('type') ? (
               <FmTypeSelect
                 value={type as NoteTypeId}
-                autoFocus={focusKey === 'type'}
+                autoFocus={activeKey === 'type'}
                 onChange={(next) => onChange({ ...frontmatter, type: next })}
               />
             ) : (
@@ -286,9 +302,9 @@ export function FrontmatterPanel({
             )}
           </FmRow>
           {id ? (
-            // No pencil and no field: an id is what everything else points at,
+            // No field and no way in: an id is what everything else points at,
             // so it is shown and locked rather than offered and then refused.
-            <FmRow label="id" icon="symbol-numeric" trailing={withPencil}>
+            <FmRow label="id" icon="symbol-numeric" trailing={trailing}>
               {editing ? (
                 <span className={cn(FM_FIELD, 'text-muted-foreground')}>
                   <span className="min-w-0 flex-1 truncate font-mono">{id}</span>
@@ -301,6 +317,7 @@ export function FrontmatterPanel({
           ) : null}
           {entries.map(([key, value]) => {
             const mark = propertyMark(key, value)
+            const rowEditing = isEditing(key)
             return (
               <FmRow
                 key={key}
@@ -308,13 +325,18 @@ export function FrontmatterPanel({
                 icon={mark.icon}
                 iconClass={mark.className}
                 issue={<IssueNote messages={issues.get(key)} />}
-                trailing={withPencil}
-                onEdit={withPencil ? () => startEditing(key) : undefined}
+                trailing={trailing}
+                // The way out lives with the fields: a property is removed
+                // while it is being edited, not offered for removal to someone
+                // who is only reading the note.
+                onDelete={rowEditing ? () => removeKey(key) : undefined}
+                onActivate={canEdit && !rowEditing ? () => setActiveKey(key) : undefined}
+                onLeave={activeKey === key ? () => setActiveKey(null) : undefined}
               >
-                {editing ? (
+                {rowEditing ? (
                   <FmValueField
                     value={value}
-                    autoFocus={focusKey === key}
+                    autoFocus={activeKey === key}
                     onChange={(v) => onChange({ ...frontmatter, [key]: v })}
                   />
                 ) : (
@@ -344,12 +366,17 @@ export function FrontmatterPanel({
           {newRow ? (
             // The same card a committed row is, except both cells are fields
             // and the row carries its own two buttons: this is a property
-            // being written, and it is not one until Add says so. Nothing
-            // commits on blur — with a Cancel sitting right there, clicking it
-            // would otherwise add the row it is meant to throw away.
+            // being written, and it is not one until it is kept. Nothing
+            // commits on blur — with a way out sitting right there, clicking
+            // it would otherwise add the row it is meant to throw away.
+            //
+            // No mark in the left column. Every other row's mark says what
+            // kind of value it holds; a property with no name yet has no kind,
+            // and the plus that stood there was a picture of the button that
+            // had already been pressed. The name field takes the column
+            // instead, which also makes it the widest thing being typed.
             <div className={cn(FM_ROW, FM_COLS_ACTION)}>
-              <Icon name="add" size={13} className="justify-self-center codicon-muted" />
-              <span className={cn(FM_FIELD, 'focus-within:border-accent-1')}>
+              <span className={cn(FM_FIELD, 'col-span-2')}>
                 <input
                   autoFocus
                   value={newRow.key}
@@ -387,18 +414,38 @@ export function FrontmatterPanel({
                   className="w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground/60"
                 />
               </span>
+              {/* Two matched squares rather than two words of different
+                  lengths: the row is already three boxes wide, and a pair of
+                  buttons whose sizes disagree reads as a sentence at the end
+                  of it. The keys do the same thing — Enter keeps, Escape
+                  throws away — so these are for the hand already on the
+                  pointer. */}
               <span className="flex items-center gap-1">
-                <ActionButton tone="ghost" size="sm" onClick={() => setNewRow(null)}>
-                  Cancel
-                </ActionButton>
+                <ActionButton
+                  tone="quiet"
+                  size="sm"
+                  icon="close"
+                  title="Discard"
+                  aria-label="Discard this property"
+                  // The mark takes the button's own colour, and on a bare
+                  // square the tone's `text-c-1` is as bright as the words
+                  // being typed beside it. White is right on the fill next to
+                  // it, where it sits on a saturated blue; here it is the
+                  // loudest thing in the row for the least important control
+                  // in it.
+                  className="w-7 px-0 text-muted-foreground hover:text-c-1"
+                  onClick={() => setNewRow(null)}
+                />
                 <ActionButton
                   tone="primary"
                   size="sm"
+                  icon="check"
+                  title="Add property"
+                  aria-label="Add property"
+                  className="w-7 px-0"
                   disabled={newRow.key.trim() === ''}
                   onClick={commitNewRow}
-                >
-                  Add
-                </ActionButton>
+                />
               </span>
             </div>
           ) : null}
@@ -414,11 +461,11 @@ export function FrontmatterPanel({
               className={cn(
                 FM_ROW,
                 FM_COLS_PLAIN,
-                // No fill of its own: the fills belong to the properties, and
-                // this is not one of them yet. It takes one on hover, which is
-                // the row it is about to become.
+                // No fill of its own, hovered or not: the fills belong to the
+                // properties, and this is not one of them yet. The words
+                // brightening is the whole answer.
                 'bg-transparent text-left text-muted-foreground/70 transition-colors',
-                'hover:bg-bg-3 hover:text-c-2'
+                'hover:bg-transparent hover:text-c-1'
               )}
             >
               <Icon name="add" size={13} className="justify-self-center codicon-inherit" />
@@ -447,7 +494,7 @@ export function FrontmatterPanel({
  * happens to add up, so a row of chips and a row of one word are the same
  * height.
  */
-const FM_ROW = 'grid w-full min-h-9 items-center gap-2.5 rounded-8 bg-bg-3 px-2.5 py-1 text-13'
+const FM_ROW = 'grid w-full min-h-9 items-center gap-2.5 rounded-8 bg-bg-3 p-1 text-13'
 /** Mark, name, value. */
 const FM_COLS_PLAIN = 'grid-cols-[14px_minmax(0,0.34fr)_minmax(0,1fr)]'
 /** The same, plus the pencil at the right edge. */
@@ -465,8 +512,8 @@ const FM_COLS_ACTION = 'grid-cols-[14px_minmax(0,0.34fr)_minmax(0,1fr)_auto]'
  * outline is two borders saying the same thing.
  */
 const FM_FIELD =
-  'flex h-7 w-full min-w-0 items-center gap-2 rounded-8 border border-bd-2 bg-bg-4/50 px-2.5 ' +
-  'text-13 text-c-1 transition-colors focus-within:border-accent-1 focus-within:bg-bg-4'
+  'flex h-7 w-full min-w-0 items-center gap-2 rounded-8 border border-border-strong bg-transparent px-2.5 ' +
+  'text-13 text-c-1 transition-colors focus-within:border-accent-1'
 
 /**
  * One property as a card: its mark, its name, its value, and any warning.
@@ -483,7 +530,9 @@ function FmRow({
   children,
   issue,
   trailing = false,
-  onEdit
+  onActivate,
+  onLeave,
+  onDelete
 }: {
   label: string
   icon: string
@@ -495,49 +544,111 @@ function FmRow({
    *  wider value column than its neighbours, which shows up as a value that
    *  starts further right than the ones above it. */
   trailing?: boolean
-  onEdit?: () => void
+  /** Turn this one row into a field. The row itself is the target: the value
+   *  is what anyone means to change, and clicking the word that is wrong is
+   *  the gesture people already make. */
+  onActivate?: () => void
+  /** Focus has left the row while it was the one being edited. */
+  onLeave?: () => void
+  onDelete?: () => void
 }): JSX.Element {
   return (
-    <div className={cn(FM_ROW, trailing ? FM_COLS_EDIT : FM_COLS_PLAIN, 'group')}>
+    <div
+      className={cn(
+        FM_ROW,
+        trailing ? FM_COLS_EDIT : FM_COLS_PLAIN,
+        'group',
+        onActivate && 'cursor-text'
+      )}
+      role={onActivate ? 'button' : undefined}
+      tabIndex={onActivate ? 0 : undefined}
+      onClick={onActivate}
+      onKeyDown={
+        onActivate
+          ? (e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              onActivate()
+            }
+          : undefined
+      }
+      // Leaving the row is how a single-field edit ends — there is no Done for
+      // one property, and adding one would put a button on every row for the
+      // sake of a gesture that is already finished. A click on the row's own
+      // bin or date button is still inside the row, so it does not count.
+      onBlur={
+        onLeave
+          ? (e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+              onLeave()
+            }
+          : undefined
+      }
+    >
+      {/* `ml-1.5` rather than padding on the row: the row's inset is the same
+          4px on all four sides, and the mark is the one thing in it that needs
+          more room than that. */}
       <Icon
         name={icon}
         size={13}
-        className={cn('justify-self-center', iconClass ?? 'codicon-muted')}
+        className={cn('ml-1.5 justify-self-center', iconClass ?? 'codicon-muted')}
       />
       <span className="truncate text-c-2">{label}</span>
       <div className="flex min-w-0 items-center gap-2 text-c-1">
         <span className="min-w-0 flex-1">{children}</span>
         {issue}
       </div>
-      {/* Held open even for a row with nothing to put in it (`id`), so the
-          column stays a column. */}
-      {trailing ? onEdit ? <EditPencil label={label} onClick={onEdit} /> : <span /> : null}
+      {/* Held open even for a row with nothing to put in it (`type`, `id`), so
+          the column stays a column. */}
+      {trailing ? (
+        onDelete ? (
+          <RowButton
+            icon="trash"
+            title={`Delete ${label}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          />
+        ) : (
+          <span />
+        )
+      ) : null}
     </div>
   )
 }
 
 /**
- * The one way into editing, wherever it is offered — a row, or the closed bar.
+ * A mark at the right edge of a row: the pencil on the closed bar, the bin on a
+ * row being edited.
  *
- * Faint until what it belongs to is pointed at, rather than hidden until then:
- * a control that only exists on hover cannot be found by looking, and a column
- * of full-strength pencils competes with the values beside them.
+ * Quiet until it is *itself* pointed at. Lighting up with the row meant the
+ * mark moved whenever the pointer crossed the panel, which reads as something
+ * happening to the row rather than as a control answering the hand.
  */
-function EditPencil({ label, onClick }: { label: string; onClick: () => void }): JSX.Element {
+function RowButton({
+  icon,
+  title,
+  onClick
+}: {
+  icon: string
+  title: string
+  onClick: (e: React.MouseEvent) => void
+}): JSX.Element {
   return (
     <button
       type="button"
-      title={`Edit ${label}`}
-      aria-label={`Edit ${label}`}
+      title={title}
+      aria-label={title}
       onClick={onClick}
-      className="inline-flex shrink-0 items-center justify-center justify-self-end text-muted-foreground/40 transition-colors hover:text-c-1 group-hover:text-muted-foreground"
+      className="mr-1.5 inline-flex shrink-0 items-center justify-center justify-self-end text-muted-foreground/40 transition-colors hover:text-c-1"
     >
       {/* `block leading-none` is what makes the button the size of the glyph.
           A codicon is an inline span, so without it the button's box is the
           row's own 19.5px line box with the 12px mark floating on its baseline
           — a button half again as tall as what it draws, sitting off-centre
           inside its own padding. */}
-      <Icon name="edit" size={12} className="block leading-none codicon-inherit" />
+      <Icon name={icon} size={12} className="block leading-none codicon-inherit" />
     </button>
   )
 }
@@ -944,6 +1055,9 @@ function TypedValue({ value }: { value: unknown }): JSX.Element {
         href={link.kind === 'url' ? link.href : undefined}
         onClick={(e) => {
           e.preventDefault()
+          // The row turns into a field when it is clicked; a link inside it is
+          // a different instruction, and it should not do both.
+          e.stopPropagation()
           openLink(link)
         }}
         className="break-all text-accent-1 underline decoration-accent-1/40 underline-offset-2 transition-colors hover:text-accent-1-hover"
@@ -1094,7 +1208,10 @@ function SummaryItem({ item }: { item: Summary }): JSX.Element {
       ) : null}
       <span
         className={cn(
-          'truncate',
+          // `leading-none` so the word's box is the word: a truncating span
+          // otherwise carries the row's own 19.5px line box, which sits a
+          // pixel proud of the marks beside it.
+          'truncate leading-none',
           item.flagged ? 'text-ic-amber' : item.quiet ? 'text-c-2' : 'text-c-1'
         )}
       >

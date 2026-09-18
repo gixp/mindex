@@ -489,7 +489,6 @@ body:has(#overlay-root) {
     /* The top level drawn as a line, for a control filled at that level. */
     --bd-3: var(--bg-4);
 
-
     /* The icon palette — eight named hues an icon can be set to, from the
      * extension table (`codicon-blue`) or the icon picker's overrides.
      *
@@ -532,8 +531,7 @@ body:has(#overlay-root) {
      * floating panels each wrote their own shadow instead, which is how there
      * came to be four different ones. */
     --sh-1: 0 1px 2px hsl(0 0% 2% / 0.4);
-    --sh-2:
-      0 4px 14px -4px hsl(0 0% 0% / 0.4), 0 1px 3px -1px hsl(0 0% 0% / 0.3);
+    --sh-2: 0 4px 14px -4px hsl(0 0% 0% / 0.4), 0 1px 3px -1px hsl(0 0% 0% / 0.3);
 
     /* The one that is the same in both themes on purpose. A mid grey reads on
      * either background, and "no particular colour" should not appear to
@@ -699,7 +697,6 @@ body:has(#overlay-root) {
     --send-codex: 0 0% 62%;
     --send-codex-fg: var(--c-1);
 
-
     /* Tailwind's 600 shades where the dark theme uses its 400s: the same
      * eight hues, dark enough to read as themselves against white instead of
      * washing out. Same reasoning as --accent-1's light value above. */
@@ -723,8 +720,7 @@ body:has(#overlay-root) {
     /* Far softer than the dark theme's: on a pale ground the same opacity
      * reads as a smudge. Same two roles, same two names. */
     --sh-1: 0 1px 2px hsl(0 0% 20% / 0.06);
-    --sh-2:
-      0 4px 14px -4px hsl(0 0% 20% / 0.1), 0 1px 3px -1px hsl(0 0% 20% / 0.06);
+    --sh-2: 0 4px 14px -4px hsl(0 0% 20% / 0.1), 0 1px 3px -1px hsl(0 0% 20% / 0.06);
 
     color-scheme: light;
     --background: 0 0% 100%;
@@ -1552,14 +1548,18 @@ body:has(#overlay-root) {
      both fragments and the sweep tears in the middle. */
   .ProseMirror .ai-thinking {
     --ai-glow: var(--brand-claude);
-    /* No radius, no padding, no ring.
-     *
-     * ProseMirror splits an inline decoration at every mark boundary, so a
-     * passage containing one italic word is three spans, not one. Anything
-     * that draws an edge — a corner, a border, side padding — draws it three
-     * times, and the italic word appeared boxed off on its own. A flat band
-     * has no edges to repeat, so the fragments read as the single highlight
-     * they are meant to be. */
+    /* The lozenge is back: a soft corner, a hair of side padding and a ring in
+       the assistant's colour, which is what made this read as one lit object
+       rather than a band of tint behind some words.
+
+       It costs something, and the cost is known: ProseMirror splits an inline
+       decoration at every mark boundary, so a passage with an italic word in
+       it is three spans, each drawing its own corners and its own light. The
+       trade was made the other way for a while — flat, and anchored to the
+       window so a single band crossed the whole passage — and that version
+       read as a highlighter rather than as something at work. */
+    border-radius: 3px;
+    padding: 0 1px;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
     background-image:
@@ -1572,23 +1572,19 @@ body:has(#overlay-root) {
         hsl(var(--ai-glow) / 0) 80%
       ),
       linear-gradient(hsl(var(--ai-glow) / 0.12), hsl(var(--ai-glow) / 0.12));
-    /* The sweep is pinned to the window, the resting tint to the fragment.
-     *
-     * This is what keeps the light whole. A decoration is split at every mark
-     * boundary and every line break, so one lit passage is many spans; painted
-     * against each span the gradient is re-laid inside each one, and a passage
-     * with a bold word in it shows three lights at three different points.
-     * Anchored to the window they all read the same coordinate, so a single
-     * band crosses the passage however many pieces it is drawn in. */
-    background-attachment: fixed, scroll;
+    /* Both layers against the fragment, so the light is a proportion of the
+       words it is crossing and takes the same time to cross a short passage as
+       a long one. */
     background-size:
-      220vw 100%,
+      220% 100%,
       100% 100%;
     background-repeat: no-repeat;
-    /* The outer glow survives — it is blurred, so it does not seam where two
-       fragments meet. The 1px ring did, and was the thing drawing the boxes. */
-    box-shadow: 0 0 14px -3px hsl(var(--ai-glow) / 0.55);
-    animation: ai-sweep 2.2s linear infinite;
+    /* The ring names the passage even where the light is not; the blurred glow
+       is what makes it findable in a full page without shouting. */
+    box-shadow:
+      0 0 0 1px hsl(var(--ai-glow) / 0.22),
+      0 0 14px -3px hsl(var(--ai-glow) / 0.55);
+    animation: ai-sweep 1.5s linear infinite;
   }
 
   /* Everything the lit words are set in, in the assistant's colour too.
@@ -2344,12 +2340,12 @@ body:has(#overlay-root) {
 @keyframes ai-sweep {
   from {
     background-position:
-      100vw 0,
+      160% 0,
       0 0;
   }
   to {
     background-position:
-      -220vw 0,
+      -60% 0,
       0 0;
   }
 }
@@ -2372,15 +2368,12 @@ body:has(#overlay-root) {
 @media (prefers-reduced-motion: reduce) {
   .ProseMirror .ai-thinking {
     animation: none;
-    /* The sweep layer goes rather than being parked somewhere: parked, it lights
-       whichever passage happens to lie under it and leaves the rest flat. What
-       stays is the resting tint, a shade stronger now that it is alone. */
-    background-image: linear-gradient(
-      hsl(var(--ai-glow) / 0.2),
-      hsl(var(--ai-glow) / 0.2)
-    );
-    background-attachment: scroll;
-    background-size: 100% 100%;
+    /* The light parks in the middle of the passage it belongs to — with both
+       layers measured against the fragment, that is a fixed place on those
+       words rather than wherever the window happens to be. */
+    background-position:
+      50% 0,
+      0 0;
   }
   .ProseMirror .ai-settled {
     animation: none;

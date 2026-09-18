@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useChatConfig } from '@/features/terminal/store-tabs'
 import { useChatStore } from '@/features/chat/store-chat'
 import { useUiStore } from '@/platform/app-settings'
@@ -18,24 +18,15 @@ export function MessageList({ sessionId, scrollerRef }: Props): JSX.Element {
   const chatFontSize = useUiStore((s) => s.chatFontSize)
   const lastTurnRef = useRef<HTMLDivElement>(null)
   const [spacer, setSpacer] = useState(0)
-  const prevCount = useRef<number | null>(null)
+  /** The turn at the end last time this ran, by id. */
+  const lastTurnId = useRef<string | null>(null)
   const pinPending = useRef(false)
   const pinActive = useRef(false)
   const didInitialBottom = useRef(false)
-  const atBottomRef = useRef(true)
 
-  const turns = session?.turns ?? []
-
-  useEffect(() => {
-    const sc = scrollerRef.current
-    if (!sc) return
-    const onScroll = (): void => {
-      atBottomRef.current = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 80
-    }
-    sc.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
-    return () => sc.removeEventListener('scroll', onScroll)
-  }, [scrollerRef])
+  // Memoised so the effect below, which watches the list itself rather than
+  // its length, does not re-run on every render of a session with no turns.
+  const turns = useMemo(() => session?.turns ?? [], [session])
 
   const recomputeSpacer = useCallback(() => {
     if (!pinActive.current) {
@@ -62,21 +53,31 @@ export function MessageList({ sessionId, scrollerRef }: Props): JSX.Element {
   }, [turns.length, recomputeSpacer])
 
   useLayoutEffect(() => {
-    const prev = prevCount.current
-    prevCount.current = turns.length
-    if (turns.length === 0) return
+    if (turns.length === 0) {
+      lastTurnId.current = null
+      return
+    }
     const last = turns[turns.length - 1]
-    const isSend =
-      prev != null &&
-      turns.length === prev + 1 &&
-      (last?.status === 'pending' || last?.status === 'streaming')
+    if (!last) return
+    const prevId = lastTurnId.current
+    lastTurnId.current = last.id
+    // A turn that was not at the end a moment ago and has not answered yet is
+    // the one just sent. Recognised by its id rather than by the list growing
+    // by exactly one: the session is re-read from disk as a turn opens, and a
+    // read that lands in the same frame changes the count by something other
+    // than one — which used to mean the message scrolled nowhere at all.
+    const isNew = last.id !== prevId
+    const isWaiting = last.status === 'pending' || last.status === 'streaming'
+    // `prevId === null` and one turn is the first message in a new chat, which
+    // is a send as much as any other — there was simply nothing before it.
+    const isSend = isNew && isWaiting && (prevId !== null || turns.length === 1)
     if (isSend) {
-      if (atBottomRef.current) {
-        pinActive.current = true
-        pinPending.current = true
-      } else {
-        pinActive.current = false
-      }
+      // Always, not only when already at the foot of the conversation. Sending
+      // is the person putting something on screen deliberately; a chat that
+      // leaves them looking at old messages because they had scrolled up is a
+      // chat that hid the thing they just did.
+      pinActive.current = true
+      pinPending.current = true
       recomputeSpacer()
       return
     }
@@ -90,7 +91,7 @@ export function MessageList({ sessionId, scrollerRef }: Props): JSX.Element {
         })
       }
     }
-  }, [turns.length, recomputeSpacer, scrollerRef])
+  }, [turns, recomputeSpacer, scrollerRef])
 
   useLayoutEffect(() => {
     if (!pinPending.current) return

@@ -27,6 +27,14 @@ interface StandardDialogProps {
    * part.
    */
   headerAction?: React.ReactNode
+  /**
+   * Less air under the header.
+   *
+   * For a window whose content begins with a surface of its own — a panel, a
+   * framed list — where the standard gap plus that panel's own inset reads as
+   * a hole between the title and the thing the window is about.
+   */
+  tightHeader?: boolean
   expanded?: boolean
   rightSlot?: React.ReactNode
   rightSlotWidth?: number
@@ -60,6 +68,7 @@ export function StandardDialog({
   title,
   subtitle,
   headerAction,
+  tightHeader = false,
   expanded = false,
   rightSlot,
   rightSlotWidth = 720,
@@ -131,7 +140,12 @@ export function StandardDialog({
               {/* No inset of its own — the panel already provides it. This
                   carried the full inset as well for a while, which put a
                   second 20px inside the first. */}
-              <div className="relative flex shrink-0 items-start justify-between pb-5">
+              <div
+                className={cn(
+                  'relative flex shrink-0 items-start justify-between',
+                  tightHeader ? 'pb-2.5' : 'pb-5'
+                )}
+              >
                 {/* In a two-column window the title block is as wide as the
                     column under it, so whatever the header carries beside it
                     starts where the second column starts rather than floating

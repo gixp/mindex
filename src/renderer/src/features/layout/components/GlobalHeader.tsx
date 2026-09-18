@@ -14,8 +14,10 @@ import { PathBreadcrumb } from './PathBreadcrumb'
 /**
  * Global header, above everything — the left sidebar and the workspace
  * (centre + right) alike. Always the window's true top-left element, so its
- * pl-16 traffic-light clearance and the sidebar toggle that lives here never
- * shift for any panel state.
+ * traffic-light clearance and the sidebar toggle that lives here never shift
+ * for any panel state. The clearance is written out in pixels because it is
+ * measured from the window's own controls, which are a fixed size and do not
+ * move with any scale on this side of the glass.
  *
  * The editor tab row itself now renders inline at the top of EditorPanel
  * (matching the right sidebar's own tab strip), not portaled in here any
@@ -86,7 +88,7 @@ export function GlobalHeader({ leftOffsetPx = 0 }: { leftOffsetPx?: number }): J
   return (
     <div
       ref={headerRef}
-      className="titlebar-drag flex h-9 shrink-0 items-center gap-4 pl-[70px] pr-4"
+      className="titlebar-drag flex h-9 shrink-0 items-center gap-4 pl-[78px] pr-4"
     >
       {/* Toggle + arrows — a fixed pair, always adjacent to each other,
           given `leftClusterWidthPx` as its own width directly (see the doc

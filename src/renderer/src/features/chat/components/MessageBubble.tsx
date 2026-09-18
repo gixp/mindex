@@ -58,14 +58,20 @@ function clockTime(ts: number): string {
 }
 
 /** The time under a message, quiet enough to be ignored while reading. */
-function SentAt({ ts, align }: { ts: number; align: 'left' | 'right' }): JSX.Element | null {
+function SentAt({ ts, align }: { ts: number; align?: 'left' | 'right' }): JSX.Element | null {
   const text = clockTime(ts)
   if (!text) return null
   return (
     <span
       className={cn(
-        'select-none text-10.5 leading-none text-muted-foreground/70',
-        align === 'right' ? 'self-end' : 'self-start'
+        // The same grey as the copy mark it sits beside. It was a step fainter,
+        // which on two things on one line reads as one of them being disabled.
+        'select-none text-10.5 leading-none text-muted-foreground',
+        // Only in a column, where it has to pick a side. In a row it must not
+        // set its own cross-axis alignment at all: `self-start` was pinning it
+        // to the top of the line while the copy mark beside it was centred,
+        // which is what made the two look out of step.
+        align === 'right' ? 'self-end' : align === 'left' ? 'self-start' : ''
       )}
     >
       {text}
@@ -177,9 +183,9 @@ function AssistantBubble({
       {/* Only once the answer is whole: a button that copies half a sentence
           is a button that copies the wrong thing. */}
       {assistant && !isPending && !isStreaming ? (
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex items-center gap-1.5 leading-none">
           {assistant.text ? <CopyAnswer text={assistant.text} /> : null}
-          <SentAt ts={assistant.ts} align="left" />
+          <SentAt ts={assistant.ts} />
         </div>
       ) : null}
       {(isPending || isStreaming) && !hasContent ? (
@@ -230,7 +236,7 @@ function CopyAnswer({ text }: { text: string }): JSX.Element {
       onClick={() => void copy()}
       title={copied ? 'Copied' : 'Copy this answer'}
       aria-label={copied ? 'Copied' : 'Copy this answer'}
-      className="inline-flex text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex items-center leading-none text-muted-foreground transition-colors hover:text-foreground"
     >
       <Icon name={copied ? 'check' : 'copy'} size={12} className="codicon-inherit" />
     </button>

@@ -50,7 +50,25 @@ const TONE: Record<Tone, string> = {
    * this codebase removed everywhere else, and is its opposite — the mistake is
    * a fixed colour on a surface that moves, and this surface does not.
    */
-  primary: 'bg-accent-1 text-white hover:bg-accent-1/90 [&_.codicon::before]:!text-white',
+  /**
+   * Disabled, a fill goes grey rather than pale blue.
+   *
+   * The shared `disabled:opacity-40` is the right answer for a button made of
+   * an edge and a word — it fades to nothing. Under a saturated fill it only
+   * turns the blue down: the button still reads as the blue one, just further
+   * away, and on a light row it can even look like the hover state. Grey is
+   * the honest picture of a button that does nothing, so the fill drops to the
+   * top of the grey ladder and the label with it, at full opacity.
+   */
+  primary:
+    'bg-accent-1 text-white hover:bg-accent-1/90 [&_.codicon::before]:!text-white ' +
+    // Not `--muted-foreground`: at 65% lightness a mark in it is as bright on
+    // the grey fill as the white one was on the blue, which is the thing that
+    // made a disabled button still look like the one to press. `--c-2` is the
+    // text ladder's own quiet step, and the remaining fade takes it the rest
+    // of the way without washing the fill out.
+    'disabled:bg-bg-4 disabled:text-c-2 disabled:opacity-70 ' +
+    'disabled:[&_.codicon::before]:!text-c-2',
   /** The way out beside it: an edge, no fill, until it is pointed at. */
   quiet: 'border border-bd-2 bg-transparent text-c-1 hover:bg-bg-3',
   /** No edge either — for a control that sits inside something else. */

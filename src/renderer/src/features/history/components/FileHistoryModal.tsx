@@ -212,6 +212,7 @@ export function FileHistoryModal(): JSX.Element | null {
       icon="history"
       title="File history"
       subtitle={fileName}
+      tightHeader
       headerAction={
         // `ml-4` is the offset the diff panel itself carries, so the comparison
         // begins exactly where that panel's edge is.
@@ -311,29 +312,10 @@ export function FileHistoryModal(): JSX.Element | null {
                       type="button"
                       onClick={() => setSelectedId(v.id)}
                       className={cn(
-                        'group/v relative flex w-full items-center gap-2.5 rounded-[10px] py-1.5 pl-2 pr-2.5 text-left transition-colors',
+                        'group/v relative flex w-full items-center rounded-[10px] px-2 py-1.5 text-left transition-colors',
                         isSelected ? 'bg-accent-1/[0.10]' : 'hover:bg-bg-3'
                       )}
                     >
-                      {/* A dot per version, and nothing joining them. The line
-                          that used to run through them read as a thread only
-                          while the rows touched; spaced apart it was a dashed
-                          rule down the side of the list. */}
-                      <span className="flex w-3 shrink-0 justify-center self-stretch">
-                        <span
-                          className={cn(
-                            'mt-[5px] h-[7px] w-[7px] shrink-0 self-start rounded-full',
-                            v.deleted
-                              ? 'bg-red-400'
-                              : isNewest
-                                ? 'bg-emerald-400'
-                                : isSelected
-                                  ? 'bg-accent-1'
-                                  : 'bg-muted-foreground/40'
-                          )}
-                        />
-                      </span>
-
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span

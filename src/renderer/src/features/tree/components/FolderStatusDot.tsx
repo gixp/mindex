@@ -130,7 +130,11 @@ export function FolderStatusDot({ folderRel, collapsed }: Props): JSX.Element | 
             'opacity-90 transition-opacity hover:opacity-100'
           )}
         >
-          <Icon name="sync" size={12} className="codicon-blue" />
+          {/* Grey, not the app's blue. Blue is the colour of something that
+              needs attention, and a folder whose context is a little behind
+              does not — it is an offer to bring it up to date, sitting in a
+              list where every row already competes for the eye. */}
+          <Icon name="sync" size={12} className="codicon-grey" />
         </button>
       )
     }
