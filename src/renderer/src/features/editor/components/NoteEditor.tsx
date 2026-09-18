@@ -331,7 +331,8 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
             from: range.from,
             to: range.to,
             added: item.added,
-            provider: item.provider
+            provider: item.provider,
+            kind: item.kind
           })
           if (!slot) continue
           // The edit is rebuilt from what the note says now, not from what it
@@ -421,7 +422,12 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
       .ai.savePendingRewrite(commentPath, {
         anchor: {
           exact,
-          prefix: editor.state.doc.textBetween(Math.max(0, range.from - 32), range.from, '\n', '\n'),
+          prefix: editor.state.doc.textBetween(
+            Math.max(0, range.from - 32),
+            range.from,
+            '\n',
+            '\n'
+          ),
           suffix: editor.state.doc.textBetween(
             range.to,
             Math.min(editor.state.doc.content.size, range.to + 32),
@@ -441,7 +447,12 @@ export function NoteEditor({ body, onChange, onAnchor, landingAnchor }: Props): 
         // that was there *then* — and the editor replaces it on the next
         // redraw, so the controls ended up rendered into a node no longer on
         // screen.
-        const slot = setAiSuggestion(editor.view, { ...range, id: r.data.id, added: span.added })
+        const slot = setAiSuggestion(editor.view, {
+          ...range,
+          id: r.data.id,
+          added: span.added,
+          kind: proposal.kind
+        })
         if (!slot) return
         setOffers((prev) => [
           ...prev.filter((o) => o.id !== r.data!.id),

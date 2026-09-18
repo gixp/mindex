@@ -16,17 +16,28 @@ interface StandardDialogProps {
    */
   subtitle?: React.ReactNode
   /**
-   * Nothing else goes in the header.
+   * One control beside the close button, and only that.
    *
-   * Two slots used to: one beside the close button and one centred over the
-   * title. They filled with whatever a window happened to need — a status
-   * pill, a pause, a re-check — so no two windows opened with the same thing
-   * in the same corner, and the one place a person can always rely on became
-   * the least predictable. A window's controls belong in the window.
+   * Two open slots used to exist — one here and one centred over the title —
+   * and they filled with whatever a window happened to need: a status pill, a
+   * pause, a re-check. No two windows then opened with the same thing in the
+   * same corner. This is the narrow version of that: a single action for the
+   * window as a whole, in the corner where a window's actions are, and nothing
+   * else. A control that belongs to one part of a window still goes in that
+   * part.
    */
+  headerAction?: React.ReactNode
   expanded?: boolean
   rightSlot?: React.ReactNode
   rightSlotWidth?: number
+  /**
+   * The line between the two columns.
+   *
+   * On by default, and off for a window whose right column is a surface of its
+   * own — a panel with its own fill and corners is already told apart from the
+   * list beside it, and a rule as well says the same thing twice.
+   */
+  rightSlotDivider?: boolean
   noHeader?: boolean
   /**
    * The panel adds no inset of its own; this window lays itself out to the
@@ -48,9 +59,11 @@ export function StandardDialog({
   icon,
   title,
   subtitle,
+  headerAction,
   expanded = false,
   rightSlot,
   rightSlotWidth = 720,
+  rightSlotDivider = true,
   noHeader = false,
   bleed = false,
   width = 800,
@@ -118,8 +131,12 @@ export function StandardDialog({
               {/* No inset of its own — the panel already provides it. This
                   carried the full inset as well for a while, which put a
                   second 20px inside the first. */}
-              <div className="relative flex shrink-0 items-start justify-between gap-3 pb-5">
-                <div className="min-w-0">
+              <div className="relative flex shrink-0 items-start justify-between pb-5">
+                {/* In a two-column window the title block is as wide as the
+                    column under it, so whatever the header carries beside it
+                    starts where the second column starts rather than floating
+                    somewhere in between. */}
+                <div className="min-w-0" style={showRight ? { width } : undefined}>
                   <div className="flex items-center gap-2">
                     <Icon name={icon} size={16} className="shrink-0" />
                     <Dialog.Title className="truncate text-13 font-semibold text-c-1">
@@ -135,7 +152,8 @@ export function StandardDialog({
                     </div>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                {headerAction ? <div className="min-w-0 flex-1">{headerAction}</div> : null}
+                <div className="ml-3 flex shrink-0 items-center gap-2">
                   <Dialog.Close asChild>
                     <button type="button" aria-label="Close" className={DIALOG_CLOSE_BTN}>
                       <Icon name="close" size={14} />
@@ -155,7 +173,10 @@ export function StandardDialog({
             </div>
             {showRight ? (
               <div
-                className="border-l border-border min-h-0 flex flex-col animate-in fade-in-0 slide-in-from-right-4 duration-200"
+                className={cn(
+                  'min-h-0 flex flex-col animate-in fade-in-0 slide-in-from-right-4 duration-200',
+                  rightSlotDivider ? 'border-l border-border' : ''
+                )}
                 style={{ width: rightSlotWidth }}
               >
                 {rightSlot}

@@ -52,12 +52,30 @@ export const AiThinking = Extension.create({
             const value = key.getState(state)
             if (!value || value.to <= value.from) return DecorationSet.empty
             try {
-              return DecorationSet.create(state.doc, [
+              const decos: Decoration[] = [
                 Decoration.inline(value.from, value.to, {
                   class: 'ai-thinking',
                   'data-provider': value.provider
                 })
-              ])
+              ]
+              // The light covers the words; this covers everything the words
+              // are set in — a quote's rule, a code block's fill, a table's
+              // lines, a list's bullets. Those are drawn by the block, not by
+              // the text, so an inline decoration never reaches them, and a
+              // passage being rewritten kept the app's own blue down its side
+              // while the assistant's colour ran across the sentence. One
+              // event should be one colour.
+              state.doc.nodesBetween(value.from, value.to, (node, pos) => {
+                if (!node.isBlock) return true
+                decos.push(
+                  Decoration.node(pos, pos + node.nodeSize, {
+                    class: 'ai-thinking-block',
+                    'data-provider': value.provider
+                  })
+                )
+                return true
+              })
+              return DecorationSet.create(state.doc, decos)
             } catch {
               // A range that no longer fits the document is not worth throwing
               // over; the rewrite it belongs to will finish or fail regardless.

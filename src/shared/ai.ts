@@ -205,11 +205,21 @@ export interface SelectionTransform {
   instruction: string
   /** Shown as the proposal's heading once an answer comes back. */
   title: string
+  /**
+   * What was done, in one word, for the offer sitting in the note.
+   *
+   * Past tense and not the menu label: by the time this is read the thing has
+   * happened, and the passage above it is the result. "Suggested" was the same
+   * word whichever of the eight was asked for, which left the one fact the
+   * footer could usefully carry — which rewrite this is — nowhere on screen.
+   */
+  done: string
 }
 
 export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   {
     id: 'rewrite',
+    done: 'Rewritten',
     label: 'Rewrite',
     icon: 'edit',
     title: 'Rewritten passage',
@@ -218,6 +228,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'shorten',
+    done: 'Shortened',
     label: 'Shorten',
     icon: 'fold',
     title: 'Shortened passage',
@@ -226,6 +237,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'expand',
+    done: 'Expanded',
     label: 'Expand',
     icon: 'unfold',
     title: 'Expanded passage',
@@ -234,6 +246,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'grammar',
+    done: 'Grammar fixed',
     label: 'Fix grammar',
     icon: 'check',
     title: 'Corrected passage',
@@ -242,6 +255,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'simplify',
+    done: 'Simplified',
     label: 'Simplify',
     icon: 'lightbulb',
     title: 'Simplified passage',
@@ -250,6 +264,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'list',
+    done: 'Turned into a list',
     label: 'Turn into a list',
     icon: 'list-unordered',
     title: 'Passage as a list',
@@ -258,6 +273,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'table',
+    done: 'Turned into a table',
     label: 'Turn into a table',
     icon: 'table',
     title: 'Passage as a table',
@@ -266,6 +282,7 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
   },
   {
     id: 'actions',
+    done: 'Action items',
     label: 'Extract action items',
     icon: 'checklist',
     title: 'Action items',
@@ -273,6 +290,18 @@ export const SELECTION_TRANSFORMS: readonly SelectionTransform[] = [
       'Replace the passage with a markdown task list of the actions it implies, written as "- [ ] …". Include only actions the passage actually calls for.'
   }
 ]
+
+/**
+ * What an offer in the note calls itself.
+ *
+ * Read from the same list the menu is drawn from, so a rewrite added there
+ * names itself here without a second list to keep in step. Anything that is
+ * not one of them — a linter fix, an agent's own proposal — falls back to the
+ * neutral word, which is all that can honestly be said about it.
+ */
+export function offerLabel(kind: string): string {
+  return SELECTION_TRANSFORMS.find((t) => t.id === kind)?.done ?? 'Suggested'
+}
 
 /** What the window sends to rewrite a passage. */
 export interface TransformSelectionInput {

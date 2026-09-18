@@ -1572,14 +1572,74 @@ body:has(#overlay-root) {
         hsl(var(--ai-glow) / 0) 80%
       ),
       linear-gradient(hsl(var(--ai-glow) / 0.12), hsl(var(--ai-glow) / 0.12));
+    /* The sweep is pinned to the window, the resting tint to the fragment.
+     *
+     * This is what keeps the light whole. A decoration is split at every mark
+     * boundary and every line break, so one lit passage is many spans; painted
+     * against each span the gradient is re-laid inside each one, and a passage
+     * with a bold word in it shows three lights at three different points.
+     * Anchored to the window they all read the same coordinate, so a single
+     * band crosses the passage however many pieces it is drawn in. */
+    background-attachment: fixed, scroll;
     background-size:
-      220% 100%,
+      220vw 100%,
       100% 100%;
     background-repeat: no-repeat;
     /* The outer glow survives — it is blurred, so it does not seam where two
        fragments meet. The 1px ring did, and was the thing drawing the boxes. */
     box-shadow: 0 0 14px -3px hsl(var(--ai-glow) / 0.55);
-    animation: ai-sweep 1.5s linear infinite;
+    animation: ai-sweep 2.2s linear infinite;
+  }
+
+  /* Everything the lit words are set in, in the assistant's colour too.
+   *
+   * A quote's rule, a code block's fill, a table's lines, a list's bullets, a
+   * link — each is drawn by the block rather than by the text, so the sweep
+   * never touched them and a paragraph being rewritten kept the app's own blue
+   * down its side. One event, one colour. The same set is restated for a
+   * suggestion on offer, which is the same content one step later. */
+  .ProseMirror .ai-thinking-block {
+    --ai-glow: var(--brand-claude);
+  }
+  .ProseMirror .ai-thinking-block[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-thinking-block[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+  .ProseMirror blockquote.ai-thinking-block,
+  .ProseMirror .ai-new blockquote {
+    border-color: hsl(var(--ai-glow) / 0.9);
+  }
+  .ProseMirror pre.ai-thinking-block,
+  .ProseMirror .ai-new pre {
+    background: hsl(var(--ai-glow) / 0.1);
+  }
+  .ProseMirror li.ai-thinking-block::marker,
+  .ProseMirror .ai-new li::marker {
+    color: hsl(var(--ai-glow));
+  }
+  .ProseMirror hr.ai-thinking-block::before,
+  .ProseMirror .ai-new hr::before {
+    background: hsl(var(--ai-glow) / 0.6);
+  }
+  .ProseMirror .ai-thinking-block th,
+  .ProseMirror .ai-thinking-block td,
+  .ProseMirror .ai-new th,
+  .ProseMirror .ai-new td {
+    border-color: hsl(var(--ai-glow) / 0.45);
+  }
+  .ProseMirror .ai-thinking-block table,
+  .ProseMirror .ai-new table {
+    border-color: hsl(var(--ai-glow) / 0.45);
+  }
+  /* A link is a mark, so it can sit either inside the lit span or around it
+     depending on where the passage starts — both ways are named. */
+  .ProseMirror .ai-thinking a,
+  .ProseMirror a:has(.ai-thinking),
+  .ProseMirror .ai-new a {
+    color: hsl(var(--ai-glow));
+    text-decoration-color: hsl(var(--ai-glow) / 0.6);
   }
 
   /* The wording being replaced, while a suggestion is on offer. Struck and
@@ -1597,7 +1657,10 @@ body:has(#overlay-root) {
     color: hsl(var(--c-2));
     text-decoration: line-through;
     text-decoration-color: hsl(var(--ai-glow) / 0.85);
-    text-decoration-thickness: 2px;
+    /* A hairline. At 2px it was heavier than the underline under the wording
+       replacing it, so the thing being taken away shouted louder than the
+       thing being offered. */
+    text-decoration-thickness: 1px;
     text-underline-offset: 0;
   }
   .ProseMirror .ai-old[data-provider='gemini'] {
@@ -1607,33 +1670,57 @@ body:has(#overlay-root) {
     --ai-glow: var(--brand-codex);
   }
 
-  /* The wording on offer, drawn right after it in the assistant's colour and
-     arriving with a short fade so the eye is taken to it. */
-  /* The wording on offer: a named area in the assistant's colour, drawn as one
-     shape rather than as a faint underline. It is a thing to be accepted or
-     turned down, so it is bounded — a ring around it says where it ends, which
-     an underline never did once the rewrite ran past one line. */
+  /* The row under the block a rewrite was offered on: what it is, on the left,
+     and the two answers to it, on the right, with a rule across the full width
+     between them and the wording. It sits under the block rather than after the
+     words because a rewrite of two words is read in the sentence around it, and
+     a pair of buttons wedged into that sentence breaks the reading. */
+  .ProseMirror .ai-offer {
+    --ai-glow: var(--brand-claude);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    border-top: 1px solid hsl(var(--bd-2));
+    margin-top: 10px;
+    padding-top: 8px;
+    animation: ai-arrive 0.28s ease-out;
+    user-select: none;
+  }
+  .ProseMirror .ai-offer[data-provider='gemini'] {
+    --ai-glow: var(--brand-gemini);
+  }
+  .ProseMirror .ai-offer[data-provider='codex'] {
+    --ai-glow: var(--brand-codex);
+  }
+  /* Says what the row is about without naming the assistant twice — its colour
+     is already on the wording above and on the accept control beside it. */
+  .ProseMirror .ai-offer-label {
+    font-size: 11px;
+    color: hsl(var(--c-2));
+  }
+
+  /* The wording on offer, in the sentence, marked by a rule under it in the
+     assistant's colour. No box: it is text to be read against the text beside
+     it, and a panel around it made it a separate object to be dealt with. */
   .ProseMirror .ai-new {
     --ai-glow: var(--brand-claude);
-    /* One box, and it is never split across lines.
-     *
-     * This was an inline span with `box-decoration-break: clone`, which draws
-     * the whole ring again on every line fragment. A rewrite longer than one
-     * line therefore produced a ring per line — including a tiny empty one
-     * wherever the offer happened to begin at the end of a line, and another
-     * one drawn around the buttons. Inline-block keeps it in the sentence
-     * while making it a single rectangle that wraps its own contents. */
-    display: inline-block;
-    /* The same corner a fenced code block gets (`.ProseMirror pre`, 10px).
-       Both are a block of machine-produced text set into the prose, so they
-       should be cut the same way; the radius scale has no 10px step, which is
-       why this is written out rather than taken from a token. */
-    border-radius: 10px;
-    padding: 8px;
     margin-left: 3px;
-    background: hsl(var(--ai-glow) / 0.12);
-    box-shadow: inset 0 0 0 1px hsl(var(--ai-glow) / 0.45);
-    animation: ai-arrive 0.28s ease-out;
+    text-decoration: underline;
+    text-decoration-color: hsl(var(--ai-glow));
+    /* The same weight as the strike through the wording it replaces — the two
+       are halves of one comparison, and a heavier rule under one of them says
+       that half matters more. */
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  /* The renderer wraps even a one-word rewrite in a paragraph; inline, it
+     rejoins the sentence it was cut out of. Only for a one-line rewrite — a
+     rewrite that is several paragraphs keeps them apart. */
+  .ProseMirror .ai-new:not(.ai-new-block) > p {
+    display: inline;
+    margin: 0;
   }
 
   /* The accept control takes the same colour, inherited rather than told: it
@@ -1648,7 +1735,7 @@ body:has(#overlay-root) {
     color: #fff;
   }
   /* Except OpenAI's, which is near-white by design and needs a dark label. */
-  .ProseMirror .ai-new[data-provider='codex'] .ai-accept {
+  .ProseMirror .ai-offer[data-provider='codex'] .ai-accept {
     color: hsl(210 6% 10%);
   }
   .ProseMirror .ai-accept:hover {
@@ -1662,25 +1749,25 @@ body:has(#overlay-root) {
      editor must not treat them as text: no caret in them, and the words in
      the buttons are not part of the note. */
   .ProseMirror .ai-actions {
-    /* Their own row at the foot of the offer, aligned right. They used to run
-       on from the last word, so they were squeezed against the ring and the
-       two of them read as one damaged control. */
+    /* At the right end of the footer row. */
     display: flex;
     justify-content: flex-end;
     align-items: center;
     gap: 10px;
-    margin-top: 8px;
     user-select: none;
     white-space: nowrap;
   }
 
-  /* A rewrite that produced a list or a table cannot sit inside a sentence. */
+  /* A rewrite that produced a list or a table cannot sit inside a sentence.
+     Nor can it be underlined: a rule under every line of a five-line list is a
+     page of underlining, not a mark. It takes a rule down its side instead —
+     the same colour, saying the same thing, once. */
   .ProseMirror .ai-new-block {
     display: block;
-    border-radius: var(--r-1);
-    margin-top: 6px;
-    margin-left: 0;
-    padding: 8px 10px;
+    margin: 6px 0 0;
+    padding-left: 10px;
+    border-left: 2px solid hsl(var(--ai-glow));
+    text-decoration: none;
   }
   .ProseMirror .ai-new-block > :first-child {
     margin-top: 0;
@@ -1688,14 +1775,6 @@ body:has(#overlay-root) {
   .ProseMirror .ai-new-block > :last-child {
     margin-bottom: 0;
   }
-  /* On a block, the controls go under it and to the right rather than trailing
-     the final word of a list item. */
-  .ProseMirror .ai-new-block .ai-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 6px 0 0;
-  }
-
   .ProseMirror .ai-new[data-provider='gemini'] {
     --ai-glow: var(--brand-gemini);
   }
@@ -2256,16 +2335,21 @@ body:has(#overlay-root) {
 }
 
 /* The light that travels across a passage being rewritten. It runs right to
-   left across the background, which is why the position counts down. */
+   left across the background, which is why the position counts down.
+
+   The distances are in viewport widths, not percentages, because the sweep
+   layer is anchored to the window (see `.ai-thinking`) rather than to each
+   fragment. A percentage would resolve against each fragment's own width and
+   put the light in a different place in every one of them. */
 @keyframes ai-sweep {
   from {
     background-position:
-      160% 0,
+      100vw 0,
       0 0;
   }
   to {
     background-position:
-      -60% 0,
+      -220vw 0,
       0 0;
   }
 }
@@ -2288,9 +2372,15 @@ body:has(#overlay-root) {
 @media (prefers-reduced-motion: reduce) {
   .ProseMirror .ai-thinking {
     animation: none;
-    background-position:
-      50% 0,
-      0 0;
+    /* The sweep layer goes rather than being parked somewhere: parked, it lights
+       whichever passage happens to lie under it and leaves the rest flat. What
+       stays is the resting tint, a shade stronger now that it is alone. */
+    background-image: linear-gradient(
+      hsl(var(--ai-glow) / 0.2),
+      hsl(var(--ai-glow) / 0.2)
+    );
+    background-attachment: scroll;
+    background-size: 100% 100%;
   }
   .ProseMirror .ai-settled {
     animation: none;
@@ -2336,7 +2426,7 @@ body:has(#overlay-root) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ProseMirror .ai-new {
+  .ProseMirror .ai-offer {
     animation: none;
   }
 }

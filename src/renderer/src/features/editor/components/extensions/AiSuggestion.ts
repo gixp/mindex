@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { EditorView } from '@tiptap/pm/view'
+import { offerLabel } from '@shared/ai'
 import { markdownToHtml } from '@/platform/markdown/markdown'
 import { sanitizeNoteHtml } from '@/platform/markdown/sanitize-embedded-html'
 
@@ -30,17 +31,22 @@ export interface SuggestionState {
   added: string
   /** Which assistant produced it, so it carries that assistant's colour. */
   provider: string
+  /** Which rewrite was asked for, so the footer can say what was done rather
+   *  than the same word for all eight of them. */
+  kind: string
   /**
-   * The element showing it, built once and then reused.
+   * The element showing the offered wording, built once and then reused.
    *
    * Held in the state rather than made on demand, and that is the whole point:
    * a widget built by a factory is rebuilt every time the editor redraws — a
    * click elsewhere is enough — and each rebuild throws the previous element
-   * away. The accept and dismiss controls are rendered *into* that element, so
-   * they went with it, and the offer looked as though it had been withdrawn by
-   * clicking somewhere. One element, kept, and they stay put.
+   * away. The accept and dismiss controls are rendered *into* one of these
+   * elements, so they went with it, and the offer looked as though it had been
+   * withdrawn by clicking somewhere. Kept elements, and they stay put.
    */
   dom: HTMLElement
+  /** The row under the block: what this is, and the two answers to it. */
+  footer: HTMLElement
 }
 
 type Meta =
@@ -107,6 +113,20 @@ export const AiSuggestion = Extension.create({
                     ignoreSelection: true
                   })
                 )
+                // The controls go under the block the passage sits in, not
+                // after the words themselves. A rewrite of two words is read
+                // in the sentence around it, and a pair of buttons wedged
+                // between "stay" and "on your device" breaks the one thing
+                // the person is trying to read. Under the paragraph they are
+                // still unmistakably about it, and the rule above them can run
+                // the full width because it has a block to run across.
+                const $to = state.doc.resolve(item.to)
+                const after = $to.depth > 0 ? $to.after($to.depth) : null
+                if (after !== null) {
+                  decos.push(
+                    Decoration.widget(after, item.footer, { side: 1, ignoreSelection: true })
+                  )
+                }
               } catch {
                 // One offer that cannot be placed must not take the rest down.
               }
@@ -125,53 +145,59 @@ export const AiSuggestion = Extension.create({
 })
 
 /**
- * The offered wording, drawn the way the note itself would draw it.
+ * The two pieces an offer is drawn with: the wording, and the row under it.
  *
- * It used to be set as plain text, which meant a rewrite that produced a list
- * or a table was shown as its own source — bullets and pipes strung along one
- * line — so the one thing the person had to judge was the one thing they could
- * not see. It goes through the app's own markdown renderer instead, the same
- * one every other read-only view uses, and through the same sanitiser: the
- * text is written by a model, and nothing a model writes is trusted HTML.
+ * The wording goes through the app's own markdown renderer and sanitiser — the
+ * same pair every other read-only view uses. It used to be set as plain text,
+ * which meant a rewrite producing a list or a table was shown as its own source,
+ * bullets and pipes strung along one line, so the one thing the person had to
+ * judge was the one thing they could not see. And nothing a model writes is
+ * trusted HTML.
  *
- * A rewrite of a phrase stays inline; anything with a line break in it becomes
- * a block, because a list cannot sit inside a sentence.
+ * A rewrite of a phrase stays inline, in the sentence it belongs to; anything
+ * with a line break in it becomes a block, because a list cannot sit inside a
+ * sentence.
+ *
+ * Both are in the document rather than floating over it: held at screen
+ * coordinates they stayed where the note had been when the answer arrived, and
+ * scrolling walked the text out from under them. In the flow they are carried
+ * along by the thing they are about, with no position to keep in step at all.
  */
-/**
- * The offered wording, drawn the way the note itself would draw it, with a
- * place for its own controls at the end.
- *
- * It used to be set as plain text, which meant a rewrite that produced a list
- * or a table was shown as its own source — bullets and pipes strung along one
- * line — so the one thing the person had to judge was the one thing they could
- * not see. It goes through the app's own markdown renderer instead, the same
- * one every other read-only view uses, and through the same sanitiser: the
- * text is written by a model, and nothing a model writes is trusted HTML.
- *
- * The empty span at the end is where the accept and dismiss controls are put.
- * They belong *inside* the document rather than floating over it: held at
- * screen coordinates they stayed where the note had been when the answer
- * arrived, and scrolling walked the text out from under them. In the flow they
- * are carried along by the thing they are about, with no position to keep in
- * step at all.
- */
-function renderAdded(value: Omit<SuggestionState, 'dom'>): HTMLElement {
-  const el = document.createElement('span')
-  el.className = value.added.includes('\n') ? 'ai-new ai-new-block' : 'ai-new'
-  el.setAttribute('data-provider', value.provider)
-  el.setAttribute('contenteditable', 'false')
+function renderAdded(value: Omit<SuggestionState, 'dom' | 'footer'>): {
+  dom: HTMLElement
+  footer: HTMLElement
+} {
+  const isBlock = value.added.includes('\n')
+
+  const dom = document.createElement('span')
+  dom.className = isBlock ? 'ai-new ai-new-block' : 'ai-new'
+  dom.setAttribute('data-provider', value.provider)
+  dom.setAttribute('contenteditable', 'false')
   try {
-    el.innerHTML = sanitizeNoteHtml(markdownToHtml(value.added))
+    dom.innerHTML = sanitizeNoteHtml(markdownToHtml(value.added))
   } catch {
     // A rewrite is still worth showing if it could not be rendered.
-    el.textContent = value.added
+    dom.textContent = value.added
   }
+
+  // The footer: what the thing above is, on the left, and the decision on the
+  // right, with a rule between it and the wording.
+  const footer = document.createElement('div')
+  footer.className = 'ai-offer'
+  footer.setAttribute('data-provider', value.provider)
+  footer.setAttribute('contenteditable', 'false')
+
+  const label = document.createElement('span')
+  label.className = 'ai-offer-label'
+  label.textContent = offerLabel(value.kind)
+  footer.appendChild(label)
 
   const actions = document.createElement('span')
   actions.className = 'ai-actions'
   actions.setAttribute('data-ai-actions', '')
-  el.appendChild(actions)
-  return el
+  footer.appendChild(actions)
+
+  return { dom, footer }
 }
 
 /**
@@ -182,11 +208,13 @@ function renderAdded(value: Omit<SuggestionState, 'dom'>): HTMLElement {
  */
 export function setAiSuggestion(
   view: EditorView,
-  value: Omit<SuggestionState, 'dom'>
+  value: Omit<SuggestionState, 'dom' | 'footer'>
 ): HTMLElement | null {
-  const dom = renderAdded(value)
-  view.dispatch(view.state.tr.setMeta(key, { type: 'add', item: { ...value, dom } } satisfies Meta))
-  return dom.querySelector<HTMLElement>('[data-ai-actions]')
+  const { dom, footer } = renderAdded(value)
+  view.dispatch(
+    view.state.tr.setMeta(key, { type: 'add', item: { ...value, dom, footer } } satisfies Meta)
+  )
+  return footer.querySelector<HTMLElement>('[data-ai-actions]')
 }
 
 /** Take one offer off the note, leaving any others in place. */

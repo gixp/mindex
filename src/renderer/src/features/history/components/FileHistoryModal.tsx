@@ -6,6 +6,7 @@ import { api } from '@/platform/api'
 import { StandardDialog } from '@/ui/StandardDialog'
 import { ConfirmDialog } from '@/ui/ConfirmDialog'
 import { Icon } from '@/ui/icon'
+import { ActionButton } from '@/ui/action-button'
 import { cn } from '@/ui/cn'
 import { HistoryDiff } from './HistoryDiff'
 
@@ -26,6 +27,19 @@ function fmtSize(bytes?: number): string {
   if (bytes == null) return ''
   if (bytes < 1024) return `${bytes} B`
   return `${(bytes / 1024).toFixed(1)} KB`
+}
+
+/**
+ * The version a control names, short enough for a button.
+ *
+ * The clock alone where that is unambiguous — most of a file's history is from
+ * today — and the date in front of it otherwise, because "2:28 AM" on its own
+ * says nothing about which 2:28 AM is about to overwrite the file.
+ */
+function versionLabel(ts: number): string {
+  const clock = fmtClock(ts)
+  if (dayKey(ts) === dayKey(Date.now())) return clock
+  return `${new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${clock}`
 }
 
 function fmtClock(ts: number): string {
@@ -198,50 +212,53 @@ export function FileHistoryModal(): JSX.Element | null {
       icon="history"
       title="File history"
       subtitle={fileName}
+      headerAction={
+        // `ml-4` is the offset the diff panel itself carries, so the comparison
+        // begins exactly where that panel's edge is.
+        <div className="ml-4 flex min-w-0 items-center gap-3">
+          {/* What is being compared. It describes the window, not one pane of
+              it, which is why it is up here rather than over the diff. */}
+          {selected ? (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[12px] font-medium text-foreground">
+                {selected.deleted ? 'Deleted' : relTime(selected.ts)}
+              </span>
+              <Icon name="arrow-right" size={11} className="shrink-0" />
+              <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-emerald-300">
+                Current
+              </span>
+            </div>
+          ) : (
+            <span className="text-[12px] text-muted-foreground">Select a version</span>
+          )}
+          <ActionButton
+            tone="primary"
+            size="sm"
+            icon="history"
+            className="ml-auto"
+            disabled={!canRestore || restoring}
+            onClick={() => setConfirmRestore(true)}
+          >
+            {restoring
+              ? 'Reverting…'
+              : `Revert${selected && !selected.deleted ? ` to ${versionLabel(selected.ts)}` : ''}`}
+          </ActionButton>
+        </div>
+      }
       width={300}
       height={680}
       expanded
       rightSlotWidth={760}
+      rightSlotDivider={false}
       rightSlot={
-        <div className="flex h-full flex-col">
-          {/* What you are looking at, stated as a comparison rather than a
-              bare timestamp — the diff is always "this version → current". */}
-          <div className="flex shrink-0 items-center gap-3">
-            {selected ? (
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-[12px] font-medium text-foreground">
-                  {selected.deleted ? 'Deleted' : relTime(selected.ts)}
-                </span>
-                <Icon name="arrow-right" size={11} className="shrink-0" />
-                <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-emerald-300">
-                  Current
-                </span>
-              </div>
-            ) : (
-              <span className="text-[12px] text-muted-foreground">Select a version</span>
-            )}
-
-            <button
-              type="button"
-              disabled={!canRestore || restoring}
-              onClick={() => setConfirmRestore(true)}
-              className={cn(
-                'ml-auto inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[9px] border px-4 text-[12px] font-medium transition-colors',
-                canRestore && !restoring
-                  ? 'border-accent-1/40 bg-accent-1/[0.10] text-accent-1-hover hover:bg-accent-1/[0.18]'
-                  : 'cursor-default border-transparent text-muted-foreground/40'
-              )}
-            >
-              <Icon
-                name="history"
-                size={12}
-                className={canRestore && !restoring ? 'codicon-blue' : undefined}
-              />
-              {restoring ? 'Restoring…' : 'Restore'}
-            </button>
-          </div>
-
-          <div className="min-h-0 flex-1">
+        // A surface of its own rather than a second half of the window: the
+        // versions are a list to pick from, the diff is the thing being looked
+        // at, and a rung down with its own corners says that without a rule
+        // between them.
+        <div className="ml-4 flex h-full flex-col rounded-r1 bg-bg-1 p-4">
+          {/* Clipped, so a long line scrolling sideways stops at the panel's
+              corner rather than running out past it. */}
+          <div className="min-h-0 flex-1 overflow-hidden">
             {diffLoading ? (
               <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
                 Loading diff…
@@ -261,7 +278,9 @@ export function FileHistoryModal(): JSX.Element | null {
       }
     >
       <div className="flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
+        {/* No padding of its own on any side: the rows carry theirs, and the
+            panel's inset is already around all of it. */}
+        <div className="min-h-0 flex-1 overflow-auto">
           {loading && versions.length === 0 ? (
             <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
               Loading…
@@ -275,7 +294,7 @@ export function FileHistoryModal(): JSX.Element | null {
             </div>
           ) : (
             days.map((day) => (
-              <div key={day.key} className="mb-1">
+              <div key={day.key} className="mb-1 flex flex-col gap-1">
                 <div className="sticky top-0 z-pane bg-card/95 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 backdrop-blur">
                   {day.label}
                 </div>
@@ -296,13 +315,14 @@ export function FileHistoryModal(): JSX.Element | null {
                         isSelected ? 'bg-accent-1/[0.10]' : 'hover:bg-bg-3'
                       )}
                     >
-                      {/* Rail: a continuous line with a node per version, so
-                          consecutive saves read as one thread of edits. */}
-                      <span className="relative flex w-3 shrink-0 justify-center self-stretch">
-                        <span className="absolute inset-y-0 w-px bg-border" />
+                      {/* A dot per version, and nothing joining them. The line
+                          that used to run through them read as a thread only
+                          while the rows touched; spaced apart it was a dashed
+                          rule down the side of the list. */}
+                      <span className="flex w-3 shrink-0 justify-center self-stretch">
                         <span
                           className={cn(
-                            'relative mt-[5px] h-[7px] w-[7px] shrink-0 self-start rounded-full ring-[3px] ring-[hsl(var(--card))]',
+                            'mt-[5px] h-[7px] w-[7px] shrink-0 self-start rounded-full',
                             v.deleted
                               ? 'bg-red-400'
                               : isNewest
@@ -362,17 +382,17 @@ export function FileHistoryModal(): JSX.Element | null {
 
       <ConfirmDialog
         open={confirmRestore}
-        title="Restore this version?"
+        title="Revert to this version?"
         message={
           <>
             {fileName} will be rewritten with the version from{' '}
             <strong className="text-foreground">
               {selected ? relTime(selected.ts) : 'this point'}
             </strong>
-            . The version you are replacing stays in this list, so you can restore back to it.
+            . The version you are replacing stays in this list, so you can go back to it.
           </>
         }
-        confirmLabel="Restore"
+        confirmLabel="Revert"
         confirmIcon="history"
         zIndex={80}
         onCancel={() => setConfirmRestore(false)}

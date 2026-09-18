@@ -79,11 +79,6 @@
       "count": 1
     }
   },
-  "src/renderer/src/features/editor/components/FrontmatterPanel.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/renderer/src/features/editor/components/NoteEditor.tsx": {
     "no-restricted-syntax": {
       "count": 3

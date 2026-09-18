@@ -572,7 +572,10 @@ export function TreePane(): JSX.Element {
         <TypesPane />
       ) : (
         <div
-          className="tree-scroll flex-1 overflow-auto px-1"
+          // Twice the inset on the left as on the right: the tree's rows carry
+          // their own indent per depth, so a symmetric gutter put the top level
+          // hard against the window edge while every nested row had room.
+          className="tree-scroll flex-1 overflow-auto pl-3 pr-1"
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return
             e.preventDefault()
