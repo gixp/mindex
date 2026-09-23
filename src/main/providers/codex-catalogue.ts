@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawnProgram } from '@main/util/program'
 import type { ModelOption, ModelTier } from './types'
 import { providerSpec } from './registry'
 import { ensureProviderPath } from './paths'
@@ -78,7 +78,7 @@ export function fetchCodexModels(): Promise<ModelOption[] | null> {
       resolve(r)
     }
 
-    const child = spawn(providerSpec('codex').bin, ['debug', 'models'], {
+    const child = spawnProgram(providerSpec('codex').bin, ['debug', 'models'], {
       env: ensureProviderPath(process.env, 'codex'),
       stdio: ['ignore', 'pipe', 'ignore']
     })

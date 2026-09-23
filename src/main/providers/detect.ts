@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawnProgram } from '@main/util/program'
 import type { ProviderId, ProviderStatus } from './types'
 import { PROVIDER_IDS } from './types'
 import { allProviderSpecs, providerSpec } from './registry'
@@ -27,7 +27,7 @@ function probeVersion(id: ProviderId): Promise<{ installed: boolean; version?: s
       resolve(r)
     }
 
-    const child = spawn(spec.bin, ['--version'], {
+    const child = spawnProgram(spec.bin, ['--version'], {
       env: ensureProviderPath(process.env, id),
       stdio: ['ignore', 'pipe', 'pipe']
     })

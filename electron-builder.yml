@@ -83,6 +83,10 @@ mac:
   # macOS kills on launch — which is why the local release script used to
   # override it by hand.
   #
+  # The ad-hoc signature itself is applied by build/notarize.cjs, not by
+  # electron-builder: see that file. Nothing in this section makes a
+  # certificate-less build signed.
+  #
   # A developer account is being bought (2026-09-01). When the certificate is
   # in hand, in this order:
   #   1. set this back to `true`

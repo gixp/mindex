@@ -297,9 +297,19 @@ export function OnboardingDialog(): JSX.Element | null {
                       className="flex aspect-[10/9] flex-col items-center justify-center gap-1.5 rounded-[16px] border border-bd-2 px-2 py-3"
                     >
                       <ProviderGlyph id={p.id} size={24} />
-                      <span className="text-[14px] font-medium text-foreground">
-                        {isInstalling ? installLabel : p.label}
-                      </span>
+                      {/* The name and the progress line are different things in
+                          the same slot. A name is two words and carries the card;
+                          a status like "Setting up Node.js…" is a sentence, and
+                          set in the name's weight it broke onto two lines of bold
+                          in a card this narrow. One line, regular, smaller — and
+                          clipped rather than wrapped if a language runs longer. */}
+                      {isInstalling ? (
+                        <span className="max-w-full truncate whitespace-nowrap text-11 font-normal text-foreground">
+                          {installLabel}
+                        </span>
+                      ) : (
+                        <span className="text-[14px] font-medium text-foreground">{p.label}</span>
+                      )}
                       {/* Fixed-height slot so swapping the button for the progress
                           bar never changes the card's total content height — the
                           icon and label above stay put instead of re-centering. */}

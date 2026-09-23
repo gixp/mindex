@@ -1,4 +1,5 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import type { ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawnProgram } from '@main/util/program'
 import type { RpcMessage, RpcRequest, RpcResponse } from './protocol'
 
 /**
@@ -64,7 +65,7 @@ export class AcpConnection {
 
   /** Spawn the adapter. Throws only if the process could not be created at all. */
   static start(opts: ConnectionOptions): AcpConnection {
-    const proc = spawn(opts.bin, opts.args, {
+    const proc = spawnProgram(opts.bin, opts.args, {
       cwd: opts.cwd,
       env: opts.env,
       stdio: ['pipe', 'pipe', 'pipe']

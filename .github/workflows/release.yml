@@ -116,9 +116,16 @@ jobs:
       - name: Build
         run: npm run ${{ matrix.script }}
         env:
-          # Free, unsigned builds: disable certificate auto-discovery so
-          # electron-builder ad-hoc signs the macOS app (required for it to
-          # launch on Apple Silicon) instead of trying to load a certificate.
+          # No certificate here, so don't go looking for one: with this unset,
+          # electron-builder searches the keychain, finds nothing, and fails
+          # the build.
+          #
+          # This does NOT ad-hoc sign the app, whatever the comment here used
+          # to claim — it skips signing altogether (`• skipped macOS
+          # application code signing` in every release log). That is how 1.0.0
+          # shipped a build Apple Silicon killed on launch. The app is signed
+          # by build/notarize.cjs instead, after the fuses are flipped, and the
+          # step below refuses to publish it unsigned.
           # Passing empty CSC_LINK/* secrets here breaks the mac build
           # ("not a file"), so they are intentionally omitted. To enable real
           # signing + notarization later, set the CSC_*/APPLE_* repo secrets and
@@ -176,6 +183,30 @@ jobs:
             fi
           done
           exit $fail
+
+      # The last chance to catch an app that cannot start, checked on the file
+      # people actually download rather than on the tree it was built from.
+      #
+      # 1.0.0 shipped a macOS app with no code signature. Apple Silicon killed
+      # it on sight — SIGKILL, no window, nothing in any log — and every step of
+      # this workflow reported success, because nothing here had ever looked at
+      # the result. `build/notarize.cjs` now signs it; this proves the signature
+      # survived into the .dmg, and stops the release if it did not.
+      - name: Verify the macOS app is signed and can start
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(ls dist/Mindex-*-arm64.dmg)
+          MP=$(mktemp -d)
+          hdiutil attach -nobrowse -quiet -mountpoint "$MP" "$DMG"
+          trap 'hdiutil detach "$MP" -quiet || true' EXIT
+          codesign --verify --strict --deep --verbose=2 "$MP/Mindex.app"
+          codesign -dv "$MP/Mindex.app" 2>&1 | grep -E '^(Identifier|Signature|CodeDirectory)'
+          # Gatekeeper still rejects it until there is a Developer ID and
+          # notarization — that is expected and is not what this gate is about.
+          spctl -a -t exec -vv "$MP/Mindex.app" 2>&1 | head -2 || true
+          echo "signature verified inside $DMG"
 
       - name: Upload source maps to Sentry
         if: matrix.os == 'ubuntu-latest'

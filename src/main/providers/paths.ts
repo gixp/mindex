@@ -2,6 +2,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { ProviderId } from './types'
 import { nodeRuntimeSearchPath } from './node-runtime'
+import { envValue } from '@main/util/program'
 
 /**
  * PATH repair for spawned agent CLIs.
@@ -129,8 +130,21 @@ export function ensureProviderPath(env: NodeJS.ProcessEnv, id?: ProviderId): Nod
   // inheriting a shell PATH picked the older one while the packaged app,
   // inheriting launchd's near-empty PATH, picked the newer. Same code, two
   // different binaries, and no way to tell from the outside which one answered.
-  const rest = (next.PATH ?? '').split(':').filter((p) => p && !wanted.includes(p))
-  next.PATH = [...wanted, ...rest].join(':')
+  //
+  // Split and joined on the platform's own separator. This used to be a colon
+  // everywhere, and on Windows — where the separator is `;` and every entry
+  // has a colon after its drive letter — that cut `C:\Windows;C:\...` into
+  // `C` and `\Windows;C` and handed the child a PATH of fragments. No CLI
+  // was findable by name there, installed or not.
+  //
+  // Read and written under a single name, too. Windows spells it `Path`, and
+  // this object is a plain copy, so it is case-sensitive: writing `PATH` next
+  // to `Path` left both, with the child's view decided by key order.
+  const pathKeys = Object.keys(next).filter((k) => k.toUpperCase() === 'PATH')
+  const current = envValue(next, 'PATH') ?? ''
+  for (const k of pathKeys) delete next[k]
+  const rest = current.split(path.delimiter).filter((p) => p && !wanted.includes(p))
+  next.PATH = [...wanted, ...rest].join(path.delimiter)
 
   delete next.ELECTRON_RUN_AS_NODE
   for (const key of INHERITED_SESSION_MARKERS) delete next[key]

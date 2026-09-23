@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawnProgram } from '@main/util/program'
 import { BrowserWindow } from 'electron'
 import { IPC } from '@shared/ipc-channels'
 import type { NodeRuntimeStatus } from '@shared/types'
@@ -79,10 +79,14 @@ function runNpmInstall(npmPackage: string): Promise<{ ok: boolean; error?: strin
     // own .npmrc, and this install has exactly one correct destination —
     // the private runtime, which is the only directory the detection code
     // below is guaranteed to look in.
-    const child = spawn(npmBinPath(), ['install', '-g', '--prefix', nodeRuntimeDir(), npmPackage], {
-      env: withoutInheritedNpmConfig(ensureProviderPath(process.env)),
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
+    const child = spawnProgram(
+      npmBinPath(),
+      ['install', '-g', '--prefix', nodeRuntimeDir(), npmPackage],
+      {
+        env: withoutInheritedNpmConfig(ensureProviderPath(process.env)),
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    )
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL')

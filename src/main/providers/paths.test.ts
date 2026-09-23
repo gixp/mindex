@@ -41,6 +41,14 @@ describe('ensureProviderPath', () => {
     expect(env.ANTHROPIC_API_KEY).toBe('sk-test')
   })
 
+  it('leaves exactly one PATH when the variable arrived spelled `Path`', () => {
+    // Windows' spelling. Writing `PATH` beside it used to leave two, and which
+    // one a child saw depended on the order Node sorted them in.
+    const env = ensureProviderPath({ Path: '/usr/bin' }, 'claude')
+    expect(Object.keys(env).filter((k) => k.toUpperCase() === 'PATH')).toEqual(['PATH'])
+    expect(env.PATH?.endsWith('/usr/bin')).toBe(true)
+  })
+
   it('still drops ELECTRON_RUN_AS_NODE and repairs PATH', () => {
     const env = ensureProviderPath({ PATH: '/usr/bin', ELECTRON_RUN_AS_NODE: '1' }, 'claude')
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined()
