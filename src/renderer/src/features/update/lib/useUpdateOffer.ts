@@ -23,7 +23,7 @@ export interface UpdateOffer {
   offered: boolean
   /** It should be on screen right now. The notice follows this. */
   shown: boolean
-  /** Mid-flight: no choice to make, and nothing to close. */
+  /** Mid-flight: no choice to make, and nothing for the notice to say. */
   working: boolean
 }
 
@@ -54,9 +54,12 @@ export function decideOffer(input: {
   const version = offered ? (input.version ?? null) : null
   if (!version) return { offered: false, shown: false, working }
 
-  // Work already under way is never hidden: the download is paid for and this
-  // is the only view of it.
-  if (working) return { offered: true, shown: true, working }
+  // Work already under way belongs to the startup screen, which names the
+  // version it is going to and draws the bar over the dimmed app. This used to
+  // be the only view of a running download, and showing it as well put two
+  // progress bars for one download on screen at once — the notice repeating,
+  // in the corner, what the middle of the window already said.
+  if (working) return { offered: true, shown: false, working }
   // Staged, or failed. Neither is the offer the stored dismissal was about —
   // that answered "not this version", and this is the same version part-way
   // installed — so only closing it here takes it off screen.

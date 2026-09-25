@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
+import path from 'node:path'
 import { dialog } from 'electron'
 import { providerSpec } from './registry'
+import { ensureProviderPath, providerSearchPaths } from './paths'
 import type { ProviderId } from './types'
 
 /**
@@ -21,10 +23,11 @@ function escapeForAppleScript(s: string): string {
 
 function spawnAndWaitForExit(
   bin: string,
-  args: string[]
+  args: string[],
+  env?: NodeJS.ProcessEnv
 ): Promise<{ ok: boolean; error?: string }> {
   return new Promise((resolve) => {
-    const child = spawn(bin, args, { stdio: 'ignore' })
+    const child = spawn(bin, args, { stdio: 'ignore', env })
     child.on('error', (e) => resolve({ ok: false, error: e.message }))
     child.on('exit', (code) =>
       resolve(code === 0 ? { ok: true } : { ok: false, error: `${bin} exited ${code}` })
@@ -34,9 +37,9 @@ function spawnAndWaitForExit(
 
 /** Resolves once the terminal process itself has launched — waiting for it
  *  to *exit* would block until the user closes the window. */
-function trySpawnTerminal(bin: string, args: string[]): Promise<boolean> {
+function trySpawnTerminal(bin: string, args: string[], env?: NodeJS.ProcessEnv): Promise<boolean> {
   return new Promise((resolve) => {
-    const child = spawn(bin, args, { stdio: 'ignore' })
+    const child = spawn(bin, args, { stdio: 'ignore', env })
     child.on('error', () => resolve(false))
     child.once('spawn', () => resolve(true))
   })
@@ -50,19 +53,35 @@ function trySpawnTerminal(bin: string, args: string[]): Promise<boolean> {
  */
 export async function openLoginTerminal(id: ProviderId): Promise<{ ok: boolean; error?: string }> {
   const command = loginCommand(id)
+  // A terminal window knows nothing about where Mindex keeps things. An
+  // assistant installed through the welcome screen lives in Mindex's own
+  // private directory, which is on no one's PATH, so the window opened for the
+  // sign-in could not find the program it was told to run — install an
+  // assistant, press Sign in, and the terminal answers "not recognized". On
+  // macOS and Linux the same directory holds the Node those CLIs need, so even
+  // naming the program by its full path would not have been enough; the
+  // directory itself has to be on PATH.
+  const env = ensureProviderPath(process.env, id)
 
   if (process.platform === 'darwin') {
+    // Terminal is already running and is nobody's child, so it inherits
+    // nothing from here: the path has to travel inside the script it is asked
+    // to run. Single-quoted, because a home directory can have a space in it.
+    const prefix = `export PATH='${providerSearchPaths(id).join(path.delimiter)}':"$PATH"; `
     const script = [
       'tell application "Terminal"',
-      `  do script "${escapeForAppleScript(command)}"`,
+      `  do script "${escapeForAppleScript(prefix + command)}"`,
       '  activate',
       'end tell'
     ].join('\n')
     return await spawnAndWaitForExit('osascript', ['-e', script])
   }
 
+  // Windows and Linux open a terminal as a child of this process, and a child
+  // inherits the environment — so the prepared PATH reaches the window without
+  // anything having to be quoted into the command line.
   if (process.platform === 'win32') {
-    return await spawnAndWaitForExit('cmd', ['/c', 'start', 'cmd', '/k', command])
+    return await spawnAndWaitForExit('cmd', ['/c', 'start', 'cmd', '/k', command], env)
   }
 
   // Linux has no single universal terminal emulator — try common ones in
@@ -75,7 +94,7 @@ export async function openLoginTerminal(id: ProviderId): Promise<{ ok: boolean; 
     ['xterm', ['-e', command]]
   ]
   for (const [bin, args] of candidates) {
-    if (await trySpawnTerminal(bin, args)) return { ok: true }
+    if (await trySpawnTerminal(bin, args, env)) return { ok: true }
   }
   void dialog.showMessageBox({
     type: 'info',

@@ -52,11 +52,16 @@ describe('decideOffer', () => {
     })
   })
 
-  it('never hides work already under way', () => {
+  it('leaves work already under way to the startup screen', () => {
+    // Still offered — the header keeps its button — but not drawn a second
+    // time in the corner, where it was a duplicate of the bar in the middle
+    // of the window.
     for (const phase of ['downloading', 'installing'] as const) {
-      expect(
-        decideOffer({ ...base, phase, dismissed: '0.3.8', closedFor: '0.3.8' })
-      ).toMatchObject({ shown: true, working: true })
+      expect(decideOffer({ ...base, phase })).toMatchObject({
+        offered: true,
+        shown: false,
+        working: true
+      })
     }
   })
 

@@ -100,8 +100,52 @@ async function createWindow(): Promise<void> {
     }
   })
 
-  window.on('ready-to-show', () => {
+  /**
+   * Show the window, and say so when it was not the normal path.
+   *
+   * The window is created hidden and shown on `ready-to-show`, which fires
+   * after the page's first paint — that is what stops a white rectangle
+   * appearing before there is anything in it. The flaw is that it is the *only*
+   * thing that shows the window: if the first paint never arrives, the app runs
+   * forever with nothing on screen and reports nothing, because as far as it is
+   * concerned nothing went wrong.
+   *
+   * That is not hypothetical. On Windows it has been watched happening: five
+   * live processes, 200MB, real CPU, a window that exists — class
+   * `Chrome_WidgetWin_1`, title "Mindex" — and invisible. Forcing it visible
+   * from outside was enough; the app itself was fine.
+   *
+   * So the paint is no longer the only way out. Whatever else is true, the
+   * window appears, and the log says which path got it there — a line saying
+   * the fallback fired is how this gets diagnosed rather than guessed at again.
+   */
+  let shown = false
+  const reveal = (why: string): void => {
+    if (shown || window.isDestroyed()) return
+    shown = true
+    clearTimeout(revealTimer)
+    if (why !== 'ready-to-show') console.warn(`[window] shown without a first paint: ${why}`)
     window.show()
+  }
+  // Long enough that it never races a slow but healthy start — a cold first
+  // launch on a spinning disk, or an x64 build being translated on an ARM
+  // machine — and short enough that nobody concludes the app is broken.
+  const revealTimer = setTimeout(() => reveal('timed out waiting for the first paint'), 10_000)
+
+  window.on('ready-to-show', () => reveal('ready-to-show'))
+  window.on('closed', () => clearTimeout(revealTimer))
+
+  // A page that failed to load will never paint, so there is no reason to keep
+  // waiting for the timer: show the window and let the failure be visible.
+  window.webContents.on('did-fail-load', (_e, code, description, url, isMainFrame) => {
+    if (!isMainFrame) return
+    console.error('[did-fail-load]', code, description, url)
+    reveal(`the page failed to load (${code} ${description})`)
+  })
+
+  window.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[render-process-gone]', details.reason, details.exitCode)
+    reveal(`the renderer stopped (${details.reason})`)
   })
 
   window.webContents.on('preload-error', (_e, preloadPath, err) => {

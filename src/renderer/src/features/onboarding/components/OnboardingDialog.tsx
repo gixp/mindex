@@ -1,6 +1,6 @@
 import { useUiStore } from '@/platform/app-settings'
 import { useVaultStore } from '@/platform/workspace'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ProviderId } from '@shared/types'
 import { api } from '@/platform/api'
 import { PROVIDERS } from '@/platform/providers'
@@ -116,6 +116,40 @@ export function OnboardingDialog(): JSX.Element | null {
   const [finishing, setFinishing] = useState<'open' | 'create' | null>(null)
 
   /**
+   * A folder that is not a vault yet gets a confirmation of its own before
+   * anything is written to it — and that confirmation is an ordinary dialog,
+   * while this screen is a gate drawn above every ordinary dialog in the app.
+   * So choosing such a folder opened a window the person could neither see nor
+   * reach, behind this one's blur, and the app looked frozen.
+   *
+   * This screen stands aside while that question is open. It is the same
+   * action continued, not a competing one: the gate comes back by itself if
+   * the confirmation is cancelled, because the pending plan clears with it.
+   */
+  const pendingMigration = useVaultStore((s) => s.pendingMigration)
+  const vault = useVaultStore((s) => s.vault)
+
+  /**
+   * Whether the vault being set up right now is the one this screen asked for.
+   *
+   * Finishing writes the completion mark only when a vault exists, and on this
+   * path it does not exist yet: the pick returns as soon as the confirmation
+   * appears. Without this, confirming the setup opened the vault and left the
+   * onboarding unfinished, so it came back — over the workspace it had just
+   * finished setting up.
+   */
+  const awaitingSetup = useRef(false)
+  useEffect(() => {
+    if (!awaitingSetup.current || !vault) return
+    awaitingSetup.current = false
+    void api()
+      .settings.setApp({ onboardedAt: Date.now() })
+      .then((r) => {
+        if (r.ok && r.data) useUiStore.setState({ settings: r.data })
+      })
+  }, [vault])
+
+  /**
    * Every assistant's own model list, asked for the way the sidebar's menu
    * asks. Above the early return below, because a hook has to run on every
    * render whether or not this screen draws anything.
@@ -129,6 +163,8 @@ export function OnboardingDialog(): JSX.Element | null {
   // Was also gated on being signed in; there is no account any more, so the
   // locally stored completion mark is the whole answer.
   if (!settings || settings.onboardedAt) return null
+  // Out of the way while the vault-setup confirmation is up (see above).
+  if (pendingMigration) return null
 
   const usable = providers.filter((p) => p.status.installed && p.status.authenticated)
   // A real CLI is required to move past this step — Mindex needs one to do
@@ -199,7 +235,12 @@ export function OnboardingDialog(): JSX.Element | null {
     // normally rather than throwing — it just leaves `vault` unset. Marking
     // onboarded here regardless was closing the onboarding on a cancelled pick
     // as if the user had finished it. Only a real vault counts as done.
-    if (!useVaultStore.getState().vault) return
+    if (!useVaultStore.getState().vault) {
+      // Unless the folder still has a question outstanding, in which case this
+      // is not over — the effect above finishes it when the vault appears.
+      awaitingSetup.current = useVaultStore.getState().pendingMigration !== null
+      return
+    }
     const r = await api().settings.setApp({ onboardedAt: Date.now() })
     if (r.ok && r.data) useUiStore.setState({ settings: r.data })
   }

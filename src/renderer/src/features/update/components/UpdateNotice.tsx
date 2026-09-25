@@ -44,9 +44,14 @@ const UPDATE_SURFACE: React.CSSProperties = {
  * briefly covers the round chat button when that one is out, which is the
  * trade: a notice that moves depending on what else is on screen is a notice
  * you have to find twice.
+ *
+ * It says nothing while a download or an install is running: that belongs to
+ * the startup screen, which names the version and draws the bar in the middle
+ * of the dimmed window. Two bars for one download is one bar too many, and the
+ * corner is the one that can be missed. See `decideOffer`.
  */
 export function UpdateNotice(): JSX.Element | null {
-  const { status, version, shown, working } = useUpdateOffer()
+  const { status, version, shown } = useUpdateOffer()
   const close = useUpdateNoticeStore((s) => s.close)
 
   if (!status || !version || !shown) return null
@@ -69,21 +74,17 @@ export function UpdateNotice(): JSX.Element | null {
       className="fixed bottom-5 right-5 z-toast w-[340px] max-w-[calc(100vw-2.5rem)] rounded-10 px-3 py-2.5"
     >
       {/* Closing is not dismissing: it says "not now, not this sitting", and
-          the header button brings it straight back. Absent while something is
-          downloading or installing — there is nothing to close, only work to
-          watch. */}
-      {!working ? (
-        <button
-          type="button"
-          onClick={() => close(version)}
-          title="Close"
-          aria-label="Close"
-          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Icon name="close" size={14} />
-        </button>
-      ) : null}
-      <div className={working ? undefined : 'pr-6'}>
+          the header button brings it straight back. */}
+      <button
+        type="button"
+        onClick={() => close(version)}
+        title="Close"
+        aria-label="Close"
+        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Icon name="close" size={14} />
+      </button>
+      <div className="pr-6">
         <Body status={status} version={version} />
       </div>
       <Actions status={status} onStart={() => void api().update.start()} onDismiss={dismiss} />
@@ -91,21 +92,9 @@ export function UpdateNotice(): JSX.Element | null {
   )
 }
 
+// A running download and an install are not here: `decideOffer` keeps the
+// notice off screen for both, and the startup screen shows them instead.
 function Body({ status, version }: { status: UpdateStatus; version: string }): JSX.Element {
-  if (status.phase === 'downloading') {
-    const pct = Math.round((status.progress ?? 0) * 100)
-    return (
-      <>
-        <Line icon="cloud-download" text={`Downloading v${version}… ${pct}%`} />
-        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-bg-1">
-          <div
-            className="h-full rounded-full bg-c-2 transition-[width] duration-200"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </>
-    )
-  }
   if (status.phase === 'ready') {
     // Only reachable now when the relaunch did not take: Install downloads and
     // restarts in one go, so nothing is left staged in the ordinary case. The
@@ -118,9 +107,6 @@ function Body({ status, version }: { status: UpdateStatus; version: string }): J
         </p>
       </>
     )
-  }
-  if (status.phase === 'installing') {
-    return <Line icon="sync" text="Installing — Mindex will restart…" />
   }
   if (status.phase === 'manual' || status.phase === 'error') {
     return (
@@ -190,11 +176,6 @@ function Actions({
   onStart(): void
   onDismiss(): void
 }): JSX.Element | null {
-  // Nothing to press while it is working — and nothing to close either: the
-  // download is already paid for, so hiding the progress would only lose the
-  // user their only view of it.
-  if (status.phase === 'downloading' || status.phase === 'installing') return null
-
   if (status.phase === 'ready') {
     return (
       <Row>
