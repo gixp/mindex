@@ -351,6 +351,14 @@ function schedulePersist(state: TabsState): void {
 const initialSeed = newChatTab()
 const initialLayout = singleGroupLayout([initialSeed.id], initialSeed.id)
 
+/**
+ * Whether a launch reopens the chats that were open when the app last closed.
+ *
+ * Off, deliberately — see `bootstrap`. Named rather than deleted so the
+ * behaviour is a decision someone can find and reverse, not an absence.
+ */
+const RESTORE_TABS_ON_LAUNCH = false
+
 export const useTabsStore = create<TabsState>((set, get) => ({
   tabs: [initialSeed],
   activeId: initialSeed.id,
@@ -751,8 +759,20 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       void a.claude.watchProject()
       return
     }
-    // Read both; write only the new key. See VaultSettings.tabs.
-    const persisted = r.data.tabs ?? r.data.claudeTabs
+    /**
+     * Every launch starts with one empty chat, whatever was open last time.
+     *
+     * Restoring the tabs looked like continuity and was not: the transcripts
+     * came back, but the assistant behind them did not — a conversation's
+     * memory belongs to the assistant's own session, and that session ended
+     * with the process. So the window filled with a conversation the
+     * assistant could no longer remember a word of, and the first reply after
+     * a restart answered as if the screen were blank. Better to be blank.
+     *
+     * The vault, its tabs on disk, and every past conversation are untouched;
+     * this only decides what is on screen at launch.
+     */
+    const persisted = RESTORE_TABS_ON_LAUNCH ? (r.data.tabs ?? r.data.claudeTabs) : undefined
     let tabs: AgentTab[]
     let activeId: string
     if (persisted && persisted.tabs.length > 0) {

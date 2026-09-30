@@ -294,6 +294,12 @@ function bumpRecent(
 
 const initialLayout = emptyLayout()
 
+/**
+ * Whether a launch reopens the notes that were open when the app last closed.
+ * Off, deliberately — see `bootstrap`.
+ */
+const RESTORE_EDITOR_TABS_ON_LAUNCH = false
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   activePath: null,
   activeTabId: null,
@@ -582,9 +588,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const root = useVaultStore.getState().vault?.root
     const r = await api().settings.getVault()
     if (useVaultStore.getState().vault?.root !== root) return
-    const paths = (r.ok && r.data?.editorTabs?.openPaths ? r.data.editorTabs.openPaths : []).filter(
-      (p) => !p.startsWith(STALE_NEW_TAB_PREFIX)
-    )
+    /**
+     * A launch opens the vault, not the notes that happened to be open in it.
+     *
+     * The same decision as the chat tabs (see `store-tabs`): the app comes up
+     * on the folder, and what to read is chosen rather than inherited from
+     * whatever was on screen days ago. What was open is still written down —
+     * this only decides what is shown — so turning it back on is one flag.
+     */
+    const paths = (
+      RESTORE_EDITOR_TABS_ON_LAUNCH && r.ok && r.data?.editorTabs?.openPaths
+        ? r.data.editorTabs.openPaths
+        : []
+    ).filter((p) => !p.startsWith(STALE_NEW_TAB_PREFIX))
     if (paths.length === 0) return // nothing persisted — App opens the root folder view
     const persistedActive = r.ok ? (r.data?.editorTabs?.activePath ?? null) : null
     const activeIndex = persistedActive ? paths.indexOf(persistedActive) : -1

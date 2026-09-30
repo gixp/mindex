@@ -404,6 +404,27 @@ function applyTurnDone(
             : { id: `${t.id}-a`, role: 'assistant', ts: Date.now(), parts, text }
         }
       }
+      // A turn that is over cannot still be running a tool. Nothing else ever
+      // closes these: a tool card leaves `running` when the agent says so, and
+      // an agent that died mid-call — the connection dropped, the adapter
+      // errored — never says so. The card then span for as long as the tab
+      // stayed open, directly under the red line explaining that the turn had
+      // failed. Two opposite claims about the same moment.
+      //
+      // A failed turn marks them failed; a turn that ended cleanly without
+      // closing one marks it done, because the work it describes did finish.
+      const open = assistant?.parts ?? []
+      if (open.some((pt) => pt.type === 'tool' && pt.status === 'running')) {
+        assistant = {
+          ...assistant!,
+          parts: open.map((pt) =>
+            pt.type === 'tool' && pt.status === 'running'
+              ? { ...pt, status: p.ok ? ('done' as const) : ('error' as const) }
+              : pt
+          )
+        }
+      }
+
       return {
         ...t,
         assistant,
