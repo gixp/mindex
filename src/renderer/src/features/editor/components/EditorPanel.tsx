@@ -11,8 +11,7 @@ import {
   GRAPH_HOME_PATH,
   isGraphPath,
   graphFolderFromPath,
-  folderRelFromPath,
-  folderViewPath
+  folderRelFromPath
 } from '@/platform/documents'
 import { useVaultStore } from '@/platform/workspace'
 import { useUiStore } from '@/platform/app-settings'
