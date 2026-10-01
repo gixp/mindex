@@ -3,7 +3,26 @@
  * vitest.config.ts) so the 28 existing `*.test.ts` main/shared suites, which
  * run in the 'node' environment with no DOM, are never touched by this.
  */
+import { afterEach } from 'vitest'
+import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
+
+/**
+ * Unmount what a test rendered, before the next one renders.
+ *
+ * Testing Library registers this itself — but only when vitest is running
+ * with `globals: true`, and this project leaves globals off so that the
+ * main-process suites keep their plain Node environment. Without it every
+ * `render()` in a file stacks up in one document: the second test's query
+ * sees the first test's copy of the page as well as its own, and a component
+ * listening on `window` hears every event once per copy still mounted.
+ *
+ * That is not theoretical. It made a sidebar test fail about a third of the
+ * time, because three live TreePanes each answered the same rename request,
+ * and each one's input committed in turn — so whether the assertion saw the
+ * typed name or an untouched one came down to which copy blurred last.
+ */
+afterEach(cleanup)
 
 // jsdom has no ResizeObserver. Several components (GraphCanvas among them)
 // use one to size a canvas from its wrapper's clientWidth/clientHeight — a

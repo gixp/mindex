@@ -47,7 +47,7 @@ describe('TreePane', () => {
   it('shows a folder that has no notes in it', () => {
     useVaultStore.setState({ dirs: ['/vault/Empty folder'] })
     render(<TreePane />)
-    expect(screen.getAllByText('Empty folder').length).toBeGreaterThan(0)
+    expect(screen.getByText('Empty folder')).toBeInTheDocument()
   })
 
   /**
