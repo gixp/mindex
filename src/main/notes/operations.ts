@@ -351,6 +351,73 @@ export async function createFolder(input: {
   return { path: abs, relPath }
 }
 
+/**
+ * Every directory at or below `absRoot`, itself included.
+ *
+ * Used to tell the index about a folder tree that has just arrived somewhere
+ * new. The index keeps folders in a set of its own, separate from the notes,
+ * because a folder with nothing in it is not implied by any note's path —
+ * and that is exactly the folder a rename or a move would otherwise lose.
+ */
+async function dirsUnder(absRoot: string): Promise<string[]> {
+  const out: string[] = [absRoot]
+  async function walk(dir: string): Promise<void> {
+    let entries: import('node:fs').Dirent<string>[] = []
+    try {
+      entries = (await fs.readdir(dir, { withFileTypes: true })) as import('node:fs').Dirent<
+        string
+      >[]
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const full = path.join(dir, entry.name)
+      out.push(full)
+      await walk(full)
+    }
+  }
+  await walk(absRoot)
+  return out
+}
+
+/**
+ * Move a folder's whole subtree from one vault-relative path to another.
+ *
+ * Shared by `moveFolder` (same name, new parent) and `renameFolder` (same
+ * parent, new name), which differ only in how they work out where the folder
+ * is going. Everything after that — the notes inside it, the links pointing
+ * at them, their history and their comments — is the same job.
+ */
+async function relocateFolder(oldRel: string, newRel: string, vaultRoot: string): Promise<void> {
+  const oldPrefix = `${oldRel}/`
+  const affected = listAllNotes()
+    .filter((n) => n.relPath === oldRel || n.relPath.startsWith(oldPrefix))
+    .map((n) => ({
+      oldAbs: n.path,
+      oldRel: n.relPath,
+      newRel: `${newRel}/${n.relPath.slice(oldPrefix.length)}`
+    }))
+  const oldAbs = fromRelative(oldRel, vaultRoot)
+  const newAbs = fromRelative(newRel, vaultRoot)
+  await renameFile(oldRel, newRel)
+  // The folders themselves, before the notes. `unlinkDir` drops the old path
+  // and everything under it; the walk then puts the same tree back under its
+  // new name. Without this pair a renamed empty folder keeps its old name in
+  // the sidebar until the next full rebuild, and a moved one shows up twice.
+  await applyFileChange({ kind: 'unlinkDir', path: oldAbs })
+  for (const dir of await dirsUnder(newAbs)) {
+    await applyFileChange({ kind: 'addDir', path: dir })
+  }
+  for (const n of affected) {
+    await applyFileChange({ kind: 'unlink', path: n.oldAbs })
+    await applyFileChange({ kind: 'add', path: fromRelative(n.newRel, vaultRoot) })
+    await rewriteIncomingLinks(n.oldRel, n.newRel)
+    await rekeyHistory(vaultRoot, n.oldRel, n.newRel).catch(() => {})
+    await rekeyComments(vaultRoot, n.oldRel, n.newRel).catch(() => {})
+  }
+}
+
 export async function moveFolder(absPath: string, newParentFolder: string): Promise<void> {
   const vault = requireVault()
   const oldRel = toRelative(absPath, vault.root)
@@ -362,23 +429,39 @@ export async function moveFolder(absPath: string, newParentFolder: string): Prom
   if (newRel === oldRel || newRel.startsWith(`${oldRel}/`)) {
     throw new Error('Refusing to move folder into itself')
   }
-  const oldPrefix = `${oldRel}/`
-  const affected = listAllNotes()
-    .filter((n) => n.relPath === oldRel || n.relPath.startsWith(oldPrefix))
-    .map((n) => ({
-      oldAbs: n.path,
-      oldRel: n.relPath,
-      newRel: `${newRel}/${n.relPath.slice(oldPrefix.length)}`
-    }))
-  await renameFile(oldRel, newRel)
-  for (const n of affected) {
-    const newAbs = fromRelative(n.newRel, vault.root)
-    await applyFileChange({ kind: 'unlink', path: n.oldAbs })
-    await applyFileChange({ kind: 'add', path: newAbs })
-    await rewriteIncomingLinks(n.oldRel, n.newRel)
-    await rekeyHistory(vault.root, n.oldRel, n.newRel).catch(() => {})
-    await rekeyComments(vault.root, n.oldRel, n.newRel).catch(() => {})
+  await relocateFolder(oldRel, newRel, vault.root)
+}
+
+/**
+ * Give a folder a different name, where it already is.
+ *
+ * The sidebar offered this for a note and not for a folder, so the only way
+ * to correct a folder's name was to make a new one, drag everything across
+ * and delete the old — which loses nothing but takes a dozen gestures, and
+ * is how a folder ends up named "Untitled folder" forever.
+ */
+export async function renameFolder(
+  absPath: string,
+  newName: string
+): Promise<{ path: string; relPath: string }> {
+  const vault = requireVault()
+  const oldRel = toRelative(absPath, vault.root)
+  if (oldRel === '' || oldRel === '.') throw new Error('Refusing to rename vault root')
+  const name = sanitizeFilename(newName)
+  if (!name) throw new Error('A folder needs a name')
+  const parentRel = path.posix.dirname(oldRel)
+  const newRel = parentRel === '.' ? name : path.posix.join(parentRel, name)
+  const newAbs = fromRelative(newRel, vault.root)
+  if (newRel === oldRel) return { path: absPath, relPath: oldRel }
+  // Case-only renames are a rename on every filesystem Mindex runs on, but
+  // on the case-insensitive ones macOS and Windows ship by default the new
+  // path "already exists" — it is the same folder. Asking whether the name
+  // differs only in case is what tells those two cases apart.
+  if (newRel.toLowerCase() !== oldRel.toLowerCase() && (await fileExists(newAbs))) {
+    throw new Error(`Folder already exists: ${newRel}`)
   }
+  await relocateFolder(oldRel, newRel, vault.root)
+  return { path: newAbs, relPath: newRel }
 }
 
 export async function deleteFolder(absPath: string): Promise<void> {

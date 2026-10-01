@@ -189,6 +189,10 @@ export const OPERATIONS = {
     rename: { args: z.tuple([z.string(), z.string()]), result: returns<NoteMeta>() },
     move: { args: z.tuple([z.string(), z.string()]), result: returns<NoteMeta>() },
     moveFolder: { args: z.tuple([z.string(), z.string()]), result: returns<void>() },
+    renameFolder: {
+      args: z.tuple([z.string(), z.string()]),
+      result: returns<{ path: string; relPath: string }>()
+    },
     delete: { args: z.tuple([z.string()]), result: returns<void>() },
     deleteFolder: { args: z.tuple([z.string()]), result: returns<void>() },
     search: {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NoteMeta } from '@shared/types'
-import { buildTree, findFolderNode } from './tree'
+import { buildTree, findFolderNode, vaultRelativeDirs } from './tree'
 
 function note(relPath: string): NoteMeta {
   return {
@@ -49,5 +49,44 @@ describe('buildTree', () => {
   it('still keeps ordinary notes at the root', () => {
     const tree = buildTree([note('CLAUDE.md'), note('inbox.md')], 'name-asc', 'folders-first', [])
     expect(tree.children?.map((c) => c.name)).toEqual(['inbox.md'])
+  })
+})
+
+/**
+ * Empty folders, on both kinds of machine.
+ *
+ * The index hands the window absolute paths in the separator the host uses.
+ * Everything the tree is built from is posix, so a Windows path had to be
+ * normalised before it could be compared — and was not. The effect was
+ * invisible on a Mac and total on Windows: every folder with no notes in it
+ * vanished from the sidebar, which is to say every folder, for as long as it
+ * took to put the first file in one.
+ */
+describe('vaultRelativeDirs', () => {
+  it('strips a posix vault root', () => {
+    expect(vaultRelativeDirs(['/vault/a', '/vault/a/b'], '/vault')).toEqual(['a', 'a/b'])
+  })
+
+  it('strips a Windows vault root, and answers in posix', () => {
+    expect(
+      vaultRelativeDirs(['C:\\Users\\d\\vault\\Notes', 'C:\\Users\\d\\vault\\Notes\\Deep'], 'C:\\Users\\d\\vault')
+    ).toEqual(['Notes', 'Notes/Deep'])
+  })
+
+  it('leaves out anything that is not under the root', () => {
+    expect(vaultRelativeDirs(['/elsewhere/a', '/vault/a'], '/vault')).toEqual(['a'])
+  })
+
+  it('is not fooled by a sibling whose name starts with the root', () => {
+    expect(vaultRelativeDirs(['/vault-backup/a'], '/vault')).toEqual([])
+  })
+
+  it('gives nothing back before a vault is open', () => {
+    expect(vaultRelativeDirs(['/vault/a'], '')).toEqual([])
+  })
+
+  it('builds a tree node for a folder that holds no notes', () => {
+    const tree = buildTree([], 'name-asc', 'folders-first', vaultRelativeDirs(['/v/Empty'], '/v'))
+    expect(tree.children?.map((c) => c.name)).toEqual(['Empty'])
   })
 })

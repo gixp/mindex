@@ -25,7 +25,10 @@ import { requestCreateType } from '@/features/types/lib/create'
 import { treeDisplayName } from '@/platform/presentation/tree-display'
 import { folderLook, noteLook } from '@/platform/presentation'
 import { openIconPicker } from '@/platform/icon-picker'
-import { requestTreeInlineRename } from '@/platform/presentation/tree-events'
+import {
+  requestTreeInlineRename,
+  requestTreeInlineRenameFolder
+} from '@/platform/presentation/tree-events'
 import { useTreeRowIconSettings } from '@/platform/presentation/useTreeRowIconSettings'
 import { findGroup } from '@/platform/tab-layout'
 import { type TabItem } from '@/ui/tab-bar'
@@ -76,7 +79,10 @@ function FolderActionButtons({ folderRel }: { folderRel: string }): JSX.Element 
   }
   async function newFolder(): Promise<void> {
     const r = await api().notes.createFolder({ folder: folderRel, name: 'Untitled folder' })
-    if (r.ok && r.data) await useEditorStore.getState().open(folderViewPath(r.data.relPath))
+    // Named in the sidebar rather than opened here. Opening the new folder
+    // shows an empty page and leaves the placeholder name standing; the
+    // input is the thing that was actually being asked for.
+    if (r.ok && r.data) requestTreeInlineRenameFolder(r.data)
   }
   return (
     <PanelActions

@@ -24,6 +24,31 @@ export function folderMtime(node: TreeNode): number {
 }
 
 /**
+ * The index's folder list, as vault-relative posix paths.
+ *
+ * The index stores absolute paths in the separator the machine uses, so on
+ * Windows they arrive as `C:\vault\Notes` while everything the tree is
+ * built from — a note's `relPath`, a folder node's `path` — is posix. Both
+ * sides are normalised here before they are compared, because the naive
+ * version (`startsWith(root + '/')`) matched nothing at all on Windows: the
+ * whole folder list was dropped, so a folder with no notes in it never
+ * appeared in the sidebar until a file was created inside it, which is
+ * when the note's own path finally implied it.
+ */
+export function vaultRelativeDirs(dirs: string[], vaultRoot: string): string[] {
+  const toPosix = (p: string): string => p.split('\\').join('/')
+  const root = toPosix(vaultRoot).replace(/\/+$/, '')
+  if (!root) return []
+  const prefix = `${root}/`
+  const out: string[] = []
+  for (const dir of dirs) {
+    const p = toPosix(dir)
+    if (p.startsWith(prefix)) out.push(p.slice(prefix.length))
+  }
+  return out
+}
+
+/**
  * Builds the same sorted/grouped tree the sidebar renders, so any other view
  * (e.g. the center-panel folder grid) that needs "the same rules as the
  * tree" can reuse this instead of re-implementing the sort/group semantics.

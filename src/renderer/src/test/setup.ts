@@ -46,3 +46,11 @@ if (typeof HTMLCanvasElement !== 'undefined') {
     fill: () => {}
   })) as unknown as typeof HTMLCanvasElement.prototype.getContext
 }
+
+// jsdom implements no layout, so it has no `scrollIntoView` either. The tree
+// calls it to bring a row that has just become an input into view; nothing is
+// scrollable here, so doing nothing is the correct behaviour rather than a
+// compromise.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {}
+}

@@ -1,7 +1,7 @@
 {
   "name": "mindex",
   "productName": "Mindex",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Mindex — AI-first personal copilot for notes, calls, projects, and routines",
   "license": "AGPL-3.0-or-later",

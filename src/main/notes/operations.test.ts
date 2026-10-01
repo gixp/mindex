@@ -58,7 +58,14 @@ vi.mock('@main/index/indexer', () => ({
 }))
 
 import { setVault } from '@main/vault/state'
-import { deleteFolder, deleteNote, moveFolder, moveNote, renameNote } from './operations'
+import {
+  deleteFolder,
+  deleteNote,
+  moveFolder,
+  moveNote,
+  renameFolder,
+  renameNote
+} from './operations'
 
 let root: string
 
@@ -302,5 +309,64 @@ describe('hostile input — the guarantee the restructure must not break', () =>
     await seed('dest/note.md', 'already there')
     await expect(moveNote(path.join(root, 'note.md'), 'dest')).rejects.toThrow(/already exists/)
     expect(await fs.readFile(path.join(root, 'dest/note.md'), 'utf8')).toBe('already there')
+  })
+
+  /**
+   * Renaming a folder, which until now could not be done at all: the sidebar
+   * offered Rename on a note and nothing on a folder, so a folder created as
+   * "Untitled folder" stayed that way unless you rebuilt it by hand.
+   */
+  describe('renameFolder', () => {
+    it('renames the folder and carries its notes with it', async () => {
+      await seed('old/note.md', 'body')
+      const r = await renameFolder(path.join(root, 'old'), 'new')
+      expect(r.relPath).toBe('new')
+      expect(await exists('old')).toBe(false)
+      expect(await fs.readFile(path.join(root, 'new/note.md'), 'utf8')).toBe('body')
+    })
+
+    it('keeps the folder where it is, only changing its name', async () => {
+      await seed('parent/old/note.md')
+      const r = await renameFolder(path.join(root, 'parent/old'), 'new')
+      expect(r.relPath).toBe('parent/new')
+      expect(await exists('parent/new/note.md')).toBe(true)
+    })
+
+    it('renames a folder with nothing in it', async () => {
+      await fs.mkdir(path.join(root, 'empty'), { recursive: true })
+      await renameFolder(path.join(root, 'empty'), 'named')
+      expect(await exists('named')).toBe(true)
+      expect(await exists('empty')).toBe(false)
+    })
+
+    it('tells the index the folder moved, so an empty one does not linger', async () => {
+      await fs.mkdir(path.join(root, 'empty/inner'), { recursive: true })
+      changes.length = 0
+      await renameFolder(path.join(root, 'empty'), 'named')
+      expect(changes).toContainEqual({ kind: 'unlinkDir', path: path.join(root, 'empty') })
+      expect(changes).toContainEqual({ kind: 'addDir', path: path.join(root, 'named') })
+      expect(changes).toContainEqual({ kind: 'addDir', path: path.join(root, 'named/inner') })
+    })
+
+    it('refuses to rename onto a folder that is already there', async () => {
+      await seed('a/note.md', 'keep me')
+      await seed('b/note.md', 'other')
+      await expect(renameFolder(path.join(root, 'b'), 'a')).rejects.toThrow(/already exists/)
+      expect(await fs.readFile(path.join(root, 'a/note.md'), 'utf8')).toBe('keep me')
+    })
+
+    it('refuses to rename the vault root', async () => {
+      await expect(renameFolder(root, 'something')).rejects.toThrow(/vault root/)
+    })
+
+    it('refuses a name that would climb out of the vault', async () => {
+      await seed('folder/note.md')
+      await renameFolder(path.join(root, 'folder'), '../escaped')
+      // The separators are stripped rather than honoured, so the folder is
+      // renamed in place instead of landing beside the vault.
+      expect(await exists('../escaped')).toBe(false)
+      const left = await fs.readdir(root)
+      expect(left.some((n) => n.includes('escaped'))).toBe(true)
+    })
   })
 })

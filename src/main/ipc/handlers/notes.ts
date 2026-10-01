@@ -14,6 +14,7 @@ import {
   deleteFolder,
   moveNote,
   moveFolder,
+  renameFolder,
   readNote,
   renameNote,
   stripNumberPrefixes,
@@ -95,6 +96,10 @@ export function registerNotesHandlers(): void {
     safe<void>(async () => {
       await moveFolder(p, parent)
     })
+  )
+
+  handle(IPC.notes.renameFolder, (_e, p: string, newName: string) =>
+    safe(async () => await renameFolder(p, newName))
   )
 
   handle(IPC.notes.deleteFolder, (_e, p: string) =>

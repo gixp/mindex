@@ -2,18 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { NoteMeta } from '@shared/types'
 import { isContextFilename } from '@shared/context-filename'
 import { useVaultStore } from '@/platform/workspace'
-import { api } from '@/platform/api'
-import { pushToast } from '@/platform/notifications'
 import { EmptyState } from '@/ui/EmptyState'
-import { requestTreeInlineRename } from '@/platform/presentation/tree-events'
 import { useContextStore } from '@/features/context/store'
 import { flattenPurpose, summarizePurpose } from '@/features/context/lib/purpose-summary'
 import { useEditorStore } from '@/features/editor/store'
-import { graphViewPath, folderViewPath, openDocument } from '@/platform/documents'
+import { graphViewPath, folderViewPath } from '@/platform/documents'
 import { useTreeSortStore } from '@/features/tree/store-treeSort'
 import { useHiddenFilesStore } from '@/features/tree/store-hiddenFiles'
 import { computeEffectiveHidden } from '@/platform/presentation/hiddenFiles'
-import { buildTree, findFolderNode } from '@/platform/presentation/tree'
+import { buildTree, findFolderNode, vaultRelativeDirs } from '@/platform/presentation/tree'
 import { Icon } from '@/ui/icon'
 import { ChromeButton } from '@/ui/chrome-button'
 import { cn } from '@/ui/cn'
@@ -132,11 +129,7 @@ export function FolderView({ folderRel }: { folderRel: string }): JSX.Element {
   // reads as more space than card.
   const feedGapPx = fv.fileCardSize === 'compact' ? 8 : 12
 
-  const dirRelPaths = useMemo(() => {
-    if (!vault) return []
-    const prefix = `${vault.root}/`
-    return dirs.filter((d) => d.startsWith(prefix)).map((d) => d.slice(prefix.length))
-  }, [dirs, vault])
+  const dirRelPaths = useMemo(() => vaultRelativeDirs(dirs, vault?.root ?? ''), [dirs, vault])
 
   // Same tree, same sort/group rules as the sidebar — just rendered as cards
   // for one folder's direct children instead of an indented list.
@@ -199,18 +192,6 @@ export function FolderView({ folderRel }: { folderRel: string }): JSX.Element {
 
   const isEmpty = children.length === 0
 
-  // The same call the tab row's New file button makes, so a note started from
-  // either place lands in the folder being looked at.
-  async function newNote(): Promise<void> {
-    const r = await api().notes.create({ type: 'untyped', title: 'Untitled', folder: folderRel })
-    if (r.ok && r.data) {
-      await openDocument(r.data.path)
-      requestTreeInlineRename(r.data)
-    } else {
-      pushToast(`That note could not be created. ${r.error ?? ''}`.trim())
-    }
-  }
-
   return (
     // A column: the feed scrolls, the footer below it does not. The two
     // buttons used to float over the feed's bottom-left corner, which meant
@@ -246,14 +227,15 @@ export function FolderView({ folderRel }: { folderRel: string }): JSX.Element {
             </div>
           ) : null}
           {isEmpty ? (
-            // The one screen in the app that had no way forward on it. Every
-            // other empty pane offers the thing you would want to do next;
-            // this one, which is where a new vault opens, offered a sentence.
+            // No button of its own. New file and New folder already sit in
+            // the top right of this panel, on every folder page whether it is
+            // empty or not; a third control in the middle of the page is the
+            // same two actions in a second place, and the one that disappears
+            // the moment the folder has anything in it.
             <EmptyState
               icon="files"
               title={folderRel ? 'Nothing in this folder yet' : 'Nothing in this vault yet'}
-              hint="Notes are plain Markdown files. Start one here."
-              action={{ label: 'New note', icon: 'new-file', onClick: () => void newNote() }}
+              hint="Notes are plain Markdown files. Start one with New file, above."
             />
           ) : (
             <>

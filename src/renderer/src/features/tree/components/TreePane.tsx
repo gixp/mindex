@@ -25,7 +25,12 @@ import { EmptyState } from '@/ui/EmptyState'
 import { api } from '@/platform/api'
 import { useContentMatches } from '@/platform/search'
 import { pushToast, showError } from '@/platform/notifications'
-import { requestTreeInlineRename } from '@/platform/presentation/tree-events'
+import {
+  requestTreeInlineRename,
+  requestTreeInlineRenameFolder,
+  type TreeRenameKind,
+  type TreeRenameRequest
+} from '@/platform/presentation/tree-events'
 import { FolderStatusDot } from './FolderStatusDot'
 import { useHasProvider } from '@/platform/engines'
 import { SkillsPane } from './SkillsPane'
@@ -43,7 +48,8 @@ import {
   type TreeNode,
   type TreeSort,
   type TreeGroup,
-  buildTree
+  buildTree,
+  vaultRelativeDirs
 } from '@/platform/presentation/tree'
 import {
   type FileDisplaySettings,
@@ -231,12 +237,10 @@ export function TreePane(): JSX.Element {
     setRevealedAll(!revealedAll)
   }
 
-  const dirRelPaths = useMemo(() => {
-    const root = useVaultStore.getState().vault?.root
-    if (!root) return []
-    const prefix = `${root}/`
-    return dirs.filter((d) => d.startsWith(prefix)).map((d) => d.slice(prefix.length))
-  }, [dirs])
+  const dirRelPaths = useMemo(
+    () => vaultRelativeDirs(dirs, useVaultStore.getState().vault?.root ?? ''),
+    [dirs]
+  )
   const searchQuery = search.trim().toLowerCase()
   const searchActive = searchQuery.length > 0
   // The text of a note counts too, not only its name. The index has always
@@ -270,9 +274,14 @@ export function TreePane(): JSX.Element {
   // the input while it's still focused: Enter blurs it deliberately (that's
   // how it commits), but Escape's unmount fires a blur too, and without the
   // guard that blur would re-commit a rename we just asked to cancel.
-  const [editing, setEditing] = useState<{ path: string; original: string; value: string } | null>(
-    null
-  )
+  const [editing, setEditing] = useState<{
+    /** Absolute for a note, vault-relative for a folder — the tree keys the
+     *  two differently, and this is matched against `TreeNode.path`. */
+    path: string
+    original: string
+    value: string
+    kind: TreeRenameKind
+  } | null>(null)
   const skipNextBlurRef = useRef(false)
 
   function commitEdit(): void {
@@ -281,12 +290,20 @@ export function TreePane(): JSX.Element {
     if (!t) return
     const v = t.value.trim()
     if (!v || v === t.original) return
-    void useEditorStore
-      .getState()
-      .renameTab(t.path, v)
-      .catch((e: unknown) =>
-        window.alert(`Rename failed: ${e instanceof Error ? e.message : String(e)}`)
-      )
+    const failed = (e: unknown): void =>
+      pushToast(`That could not be renamed. ${e instanceof Error ? e.message : String(e)}`.trim())
+    if (t.kind === 'folder') {
+      // A folder's row is keyed relatively; the operation takes the absolute
+      // path, like every other one that touches the disk.
+      const root = useVaultStore.getState().vault?.root
+      if (!root) return
+      void (async () => {
+        const r = await api().notes.renameFolder(`${root}/${t.path}`, v)
+        if (!r.ok) failed(r.error ?? 'Unknown error')
+      })().catch(failed)
+      return
+    }
+    void useEditorStore.getState().renameTab(t.path, v).catch(failed)
   }
 
   function cancelEdit(): void {
@@ -318,8 +335,11 @@ export function TreePane(): JSX.Element {
 
   useEffect(() => {
     function onStartRename(e: Event): void {
-      const detail = (e as CustomEvent<{ path: string; relPath: string; name: string }>).detail
+      const detail = (e as CustomEvent<TreeRenameRequest>).detail
       if (!detail?.path) return
+      // Whatever is being renamed, the folders above it have to be open for
+      // its row to exist at all — so they are unfolded first, from the
+      // vault-relative path both kinds carry.
       const parts = detail.relPath.split('/')
       if (parts.length > 1) {
         setCollapsed((prev) => {
@@ -338,7 +358,12 @@ export function TreePane(): JSX.Element {
         })
       }
       skipNextBlurRef.current = false
-      setEditing({ path: detail.path, original: detail.name, value: detail.name })
+      setEditing({
+        path: detail.path,
+        original: detail.name,
+        value: detail.name,
+        kind: detail.kind
+      })
     }
     window.addEventListener('mindex:tree-start-rename', onStartRename)
     return () => {
@@ -696,10 +721,10 @@ export function TreePane(): JSX.Element {
             setMenu(null)
             setConfirmDelete({ path, name, kind })
           }}
-          onRename={(path, name) => {
+          onRename={(path, name, kind) => {
             setMenu(null)
             skipNextBlurRef.current = false
-            setEditing({ path, original: name, value: name })
+            setEditing({ path, original: name, value: name, kind })
           }}
           onHide={(p) => {
             useHiddenFilesStore.getState().hide(p)
@@ -868,7 +893,7 @@ function TreeContextMenu({
   state: TreeContextMenuState
   onClose(): void
   onAskDelete(path: string, name: string, kind: 'note' | 'folder'): void
-  onRename(path: string, name: string): void
+  onRename(path: string, name: string, kind: TreeRenameKind): void
   onHide(absPath: string): void
   onUnhide(absPath: string): void
   onHideAll(basename: string): void
@@ -945,7 +970,7 @@ function TreeContextMenu({
           void api()
             .notes.createFolder({ folder: parentRel, name: 'Untitled folder' })
             .then((r) => {
-              if (r.ok && r.data) void openDocument(folderViewPath(r.data.relPath))
+              if (r.ok && r.data) requestTreeInlineRenameFolder(r.data)
             })
         }
       }
@@ -1055,15 +1080,17 @@ function TreeContextMenu({
       ])
     }
   }
-  const renameGroup: MenuItem[] = []
-  if (isFile) {
-    renameGroup.push({
-      label: 'Rename',
-      onClick: () => onRename(absPath, state.node.name)
-    })
-  }
   groups.push([
-    ...renameGroup,
+    {
+      label: 'Rename',
+      // A note is addressed absolutely and a folder relatively, because that
+      // is how each one's row is keyed — the caller puts the input on the row
+      // whose `path` matches, and the two kinds do not share a key space.
+      onClick: () =>
+        isFile
+          ? onRename(absPath, state.node.name, 'note')
+          : onRename(state.node.path, state.node.name, 'folder')
+    },
     {
       label: 'Delete',
       destructive: true,
